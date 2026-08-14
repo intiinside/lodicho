@@ -26,6 +26,9 @@ htmlcov/
 /pgdata/
 /qdrant_storage/
 
+# --- Certificados TLS (Let's Encrypt): claves privadas, nunca al repo ---
+/certbot/
+
 # --- Editores / SO ---
 .vscode/
 .idea/

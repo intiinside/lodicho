@@ -7,8 +7,23 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./web:/usr/share/nginx/html:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
     depends_on:
       - api
+    networks:
+      - lodicho_net
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # Reintenta la renovacion cada 12h; certbot no renueva hasta que falten
+    # <30 dias de vigencia, asi que la mayoria de las corridas no hacen nada.
+    entrypoint: >
+      /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;"
     networks:
       - lodicho_net
     restart: unless-stopped

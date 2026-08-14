@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate shell init-qdrant
+.PHONY: up down logs migrate shell init-qdrant init-letsencrypt reload-nginx
 
 up:
 	docker compose up -d --build
@@ -17,3 +17,12 @@ shell:
 
 init-qdrant:
 	docker compose exec api python scripts/init_qdrant.py
+
+# Correr una sola vez, con `make up` ya corrido y CERTBOT_EMAIL en .env.
+init-letsencrypt:
+	bash scripts/init-letsencrypt.sh
+
+# El contenedor certbot renueva el certificado en disco solo, pero nginx
+# no lo relee sin esto. Conviene un cron periodico corriendo este target.
+reload-nginx:
+	docker compose exec nginx nginx -s reload
