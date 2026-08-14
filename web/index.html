@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es-EC">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <title>Lo Dicho</title>
+  <meta name="description" content="Contrastación electoral para Bolívar: qué dice el plan de trabajo y qué establece el COOTAD." />
+  <meta name="theme-color" content="#1456c4" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Lo Dicho" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="top-header" id="top-header"></header>
+
+    <main class="app-main" id="app-main" aria-live="polite"></main>
+
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Navegación principal"></nav>
+
+    <div class="sheet-backdrop" id="sheet-backdrop"></div>
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div>
+  </div>
+
+  <script src="js/vendor/marked.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
