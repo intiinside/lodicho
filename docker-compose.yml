@@ -1,0 +1,77 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./web:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+    networks:
+      - lodicho_net
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+      - qdrant
+    networks:
+      - lodicho_net
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./api
+    command: ["arq", "app.worker.WorkerSettings"]
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+      - qdrant
+    networks:
+      - lodicho_net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lodicho_net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - lodicho_net
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - lodicho_net
+    restart: unless-stopped
+
+networks:
+  lodicho_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  qdrant_data:

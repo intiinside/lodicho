@@ -1,0 +1,33 @@
+# --- Env ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+build/
+dist/
+
+# --- Test / lint caches ---
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# --- Docker volumes montados localmente (si aplica) ---
+/data/
+/pgdata/
+/qdrant_storage/
+
+# --- Editores / SO ---
+.vscode/
+.idea/
+.DS_Store
+*.swp
