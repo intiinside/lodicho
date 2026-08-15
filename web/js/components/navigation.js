@@ -3,6 +3,7 @@ import { leerTema, toggleTema } from "../state.js";
 
 const ITEMS = [
   { ruta: "#/", etiqueta: "Consultar", icono: ICONS.home },
+  { ruta: "#/candidatos", etiqueta: "Candidatos", icono: ICONS.users },
   { ruta: "#/admin", etiqueta: "Ingresar Documentos", icono: ICONS.folder },
   { ruta: "#/historial", etiqueta: "Historial", icono: ICONS.history },
   { ruta: "#/acerca", etiqueta: "Metodología", icono: ICONS.info },

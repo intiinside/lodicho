@@ -1,5 +1,6 @@
 const STORAGE_KEY = "lodicho:historial";
 const THEME_KEY = "lodicho:theme";
+const CANDIDATURA_PRESELECCIONADA_KEY = "lodicho:candidatura_preseleccionada";
 const MAX_HISTORIAL = 50;
 
 export function leerHistorial() {
@@ -48,4 +49,24 @@ export function toggleTema() {
 export function aplicarTema(tema) {
   const raiz = document.documentElement;
   raiz.setAttribute("data-theme", tema);
+}
+
+// Candidatura elegida en #/candidatos/{id} para arrancar la próxima consulta
+// directo sobre ella, sin depender de que el clasificador adivine el nombre
+// desde texto libre. Vive en sessionStorage: es contexto de la sesión de
+// navegación actual, no algo que deba persistir entre visitas.
+export function guardarCandidaturaPreseleccionada(candidatura) {
+  sessionStorage.setItem(CANDIDATURA_PRESELECCIONADA_KEY, JSON.stringify(candidatura));
+}
+
+export function leerCandidaturaPreseleccionada() {
+  try {
+    return JSON.parse(sessionStorage.getItem(CANDIDATURA_PRESELECCIONADA_KEY));
+  } catch {
+    return null;
+  }
+}
+
+export function limpiarCandidaturaPreseleccionada() {
+  sessionStorage.removeItem(CANDIDATURA_PRESELECCIONADA_KEY);
 }

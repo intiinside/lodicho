@@ -5,6 +5,8 @@ import * as homeView from "./views/home-view.js";
 import * as historialView from "./views/historial-view.js";
 import * as resultadoView from "./views/resultado-view.js";
 import * as acercaView from "./views/acerca-view.js";
+import * as candidatosView from "./views/candidatos-view.js";
+import * as candidatoDetalleView from "./views/candidato-detalle-view.js";
 
 const mainEl = document.getElementById("app-main");
 const headerEl = document.getElementById("top-header");
@@ -15,11 +17,17 @@ function resolverRuta(ruta) {
   if (ruta === "" || ruta === "#" || ruta === "#/") return { vista: homeView, params: {} };
   if (ruta === "#/historial") return { vista: historialView, params: {} };
   if (ruta === "#/acerca") return { vista: acercaView, params: {} };
+  if (ruta === "#/candidatos") return { vista: candidatosView, params: {} };
   if (ruta === "#/admin") return { cargarVista: () => import("./views/admin-view.js"), params: {} };
 
   const matchConsulta = ruta.match(/^#\/consulta\/(.+)$/);
   if (matchConsulta) {
     return { vista: resultadoView, params: { id: decodeURIComponent(matchConsulta[1]) } };
+  }
+
+  const matchCandidato = ruta.match(/^#\/candidatos\/(.+)$/);
+  if (matchCandidato) {
+    return { vista: candidatoDetalleView, params: { id: decodeURIComponent(matchCandidato[1]) } };
   }
 
   return { vista: homeView, params: {} };

@@ -10,6 +10,19 @@ export class ErrorAPI extends Error {
   }
 }
 
+export async function listarCandidaturas() {
+  const res = await fetch(`${BASE_URL}/candidaturas`);
+  if (!res.ok) throw new ErrorAPI(`El servidor respondió ${res.status}.`);
+  return await res.json();
+}
+
+export async function obtenerCandidatura(id) {
+  const res = await fetch(`${BASE_URL}/candidaturas/${encodeURIComponent(id)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new ErrorAPI(`El servidor respondió ${res.status}.`);
+  return await res.json();
+}
+
 export async function obtenerEstado() {
   try {
     const res = await fetch(`${BASE_URL}/estado`);

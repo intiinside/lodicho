@@ -2,26 +2,35 @@ import { enviarConsulta, obtenerEstado } from "../api.js";
 import { crearComposer } from "../components/composer.js";
 import { crearInformeCard } from "../components/informe-card.js";
 import { bannerSilencioHtml, bannerHtml } from "../components/banner-silencio.js";
-import { guardarEnHistorial, leerHistorial } from "../state.js";
+import {
+  guardarEnHistorial,
+  leerHistorial,
+  leerCandidaturaPreseleccionada,
+  limpiarCandidaturaPreseleccionada,
+} from "../state.js";
 import { escapeHtml, formatearFecha } from "../util.js";
 import { VEREDICTO_LABELS } from "../components/veredicto-badge.js";
+import { ICONS } from "../icons.js";
 
 export async function render(container) {
   const historialReciente = leerHistorial().slice(0, 4);
+  let candidaturaPreseleccionada = leerCandidaturaPreseleccionada();
 
   container.innerHTML = `
     <div id="home-banner"></div>
-    
+
     <div class="dash-hero">
       <h1 class="dash-hero__title">Contrastación Electoral</h1>
       <p class="dash-hero__subtitle">Cotejo factual e inmediato contra planes de trabajo del CNE y competencias legales del COOTAD.</p>
     </div>
-    
+
+    <div id="candidatura-preseleccionada-slot" style="margin-bottom: 16px;"></div>
+
     <div id="composer-slot" style="margin-bottom: 32px;"></div>
-    
+
     <div id="home-estado" style="margin-bottom: 24px;"></div>
     <div id="home-resultados-stream"></div>
-    
+
     <section class="dash-section" id="seccion-recientes">
       <div class="dash-section__header">
         <h2 class="dash-section__title">Consultas Recientes</h2>
@@ -37,9 +46,38 @@ export async function render(container) {
     container.querySelector("#home-banner").innerHTML = bannerSilencioHtml(estado.modo_silencio_electoral);
   });
 
+  const preseleccionSlot = container.querySelector("#candidatura-preseleccionada-slot");
+  function pintarPreseleccion() {
+    preseleccionSlot.innerHTML = candidaturaPreseleccionada
+      ? `
+        <div class="console-card" style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; margin-bottom:0; border-color:var(--color-brand);">
+          <span style="font-size:13px;">Vas a contrastar una declaración de <strong>${escapeHtml(candidaturaPreseleccionada.nombre)}</strong>.</span>
+          <button type="button" class="btn-secondary" id="btn-quitar-preseleccion" style="flex-shrink:0;">
+            ${ICONS.close} <span>Quitar</span>
+          </button>
+        </div>
+      `
+      : "";
+
+    const btnQuitar = preseleccionSlot.querySelector("#btn-quitar-preseleccion");
+    if (btnQuitar) {
+      btnQuitar.addEventListener("click", () => {
+        candidaturaPreseleccionada = null;
+        limpiarCandidaturaPreseleccionada();
+        pintarPreseleccion();
+      });
+    }
+  }
+  pintarPreseleccion();
+
   const estadoEl = container.querySelector("#home-estado");
   const composer = crearComposer({
-    onEnviar: (payload) => ejecutarConsulta(container, payload, estadoEl),
+    onEnviar: (payload) => {
+      const payloadConCandidatura = candidaturaPreseleccionada
+        ? { ...payload, candidaturaId: candidaturaPreseleccionada.id }
+        : payload;
+      ejecutarConsulta(container, payloadConCandidatura, estadoEl);
+    },
   });
   container.querySelector("#composer-slot").appendChild(composer);
 }
