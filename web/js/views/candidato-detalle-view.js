@@ -39,8 +39,9 @@ export async function render(container, params) {
     return;
   }
 
-  const nombres = candidatura.candidatos.length
-    ? candidatura.candidatos.map((c) => escapeHtml(c.nombre)).join(", ")
+  const candidatos = candidatura.candidatos || [];
+  const nombres = candidatos.length
+    ? candidatos.map((c) => escapeHtml(c.nombre)).join(", ")
     : "Candidatura sin candidatos registrados";
   const sinPlan = candidatura.estado_plan !== "registrado";
 
@@ -75,7 +76,7 @@ export async function render(container, params) {
       </div>
       <div id="candidato-informes">
         ${
-          candidatura.informes_publicados.length
+          (candidatura.informes_publicados || []).length
             ? `<div class="recent-grid">${candidatura.informes_publicados.map(informeHtml).join("")}</div>`
             : `<div class="console-card" style="text-align:center; padding: 24px;">
                  <p style="color:var(--color-text-muted);">Todavía no hay informes de contrastación publicados sobre esta candidatura.</p>

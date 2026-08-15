@@ -65,7 +65,7 @@ export async function render(container) {
     const filtradas = !texto
       ? candidaturas
       : candidaturas.filter((c) => {
-          const nombres = c.candidatos.map((cand) => cand.nombre).join(" ");
+          const nombres = (c.candidatos || []).map((cand) => cand.nombre).join(" ");
           const bolsa = `${nombres} ${c.organizacion_politica} ${etiquetaDignidad(c.dignidad)}`.toLowerCase();
           return bolsa.includes(texto);
         });
@@ -106,8 +106,9 @@ export async function render(container) {
 }
 
 function candidaturaCardHtml(c) {
-  const nombres = c.candidatos.length
-    ? c.candidatos.map((cand) => escapeHtml(cand.nombre)).join(", ")
+  const candidatos = c.candidatos || [];
+  const nombres = candidatos.length
+    ? candidatos.map((cand) => escapeHtml(cand.nombre)).join(", ")
     : "Candidatura sin candidatos registrados";
   const sinPlan = c.estado_plan !== "registrado";
 

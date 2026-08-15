@@ -296,8 +296,9 @@ async function renderCandidaturas(container, api) {
 }
 
 function candidaturaCardHtml(candidatura) {
-  const candidatosHtml = candidatura.candidatos.length
-    ? candidatura.candidatos.map((c) => `
+  const candidatos = candidatura.candidatos || [];
+  const candidatosHtml = candidatos.length
+    ? candidatos.map((c) => `
         <li>${escapeHtml(String(c.posicion_lista))}. ${escapeHtml(c.nombre)}</li>
       `).join("")
     : `<li style="color:var(--color-text-subtle);">Sin candidatos registrados.</li>`;
