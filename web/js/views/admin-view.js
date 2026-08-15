@@ -15,7 +15,6 @@ const CAMPOS_POR_TIPO = {
     { clave: "jurisdiccion_dpa", etiqueta: "Jurisdicción DPA (opcional)", tipo: "text", placeholder: "0207" },
   ],
   plan_trabajo: [
-    { clave: "candidatura_id", etiqueta: "ID de candidatura", tipo: "number", placeholder: "42" },
     { clave: "dignidad", etiqueta: "Dignidad", tipo: "text", placeholder: "vocal_junta_parroquial" },
     { clave: "organizacion", etiqueta: "Organización política", tipo: "text", placeholder: "Partido Y" },
     { clave: "lista_numero", etiqueta: "Número de lista", tipo: "text", placeholder: "18" },
@@ -76,6 +75,7 @@ function renderLogin(container, api) {
 const SECCIONES = [
   { clave: "subir", etiqueta: "Subir" },
   { clave: "documentos", etiqueta: "Documentos" },
+  { clave: "candidaturas", etiqueta: "Candidaturas" },
 ];
 
 function renderPanel(container, api, seccion) {
@@ -105,6 +105,8 @@ function renderPanel(container, api, seccion) {
   const contenido = container.querySelector("#admin-contenido");
   if (seccion === "documentos") {
     renderDocumentos(contenido, api);
+  } else if (seccion === "candidaturas") {
+    renderCandidaturas(contenido, api);
   } else {
     renderSubir(contenido, api);
   }
@@ -184,6 +186,124 @@ async function renderDocumentos(container, api) {
   });
 }
 
+async function renderCandidaturas(container, api) {
+  container.innerHTML = `<div class="state-block"><div class="spinner"></div><p>Cargando…</p></div>`;
+
+  let candidaturas;
+  try {
+    candidaturas = await api.listarCandidaturas();
+  } catch (err) {
+    container.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <h1 style="font-size:18px; margin-bottom:12px;">Candidaturas</h1>
+
+    <div style="overflow-x:auto; margin-bottom:24px;">
+      ${
+        candidaturas.length
+          ? `
+            <table class="admin-tabla">
+              <thead>
+                <tr>
+                  <th>id</th>
+                  <th>organización</th>
+                  <th>lista</th>
+                  <th>dignidad</th>
+                  <th>jurisdicción</th>
+                  <th>período</th>
+                  <th>estado del plan</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${candidaturas
+                  .map(
+                    (c) => `
+                      <tr>
+                        <td>${c.id}</td>
+                        <td>${escapeHtml(c.organizacion_politica)}</td>
+                        <td>${escapeHtml(c.lista_numero)}</td>
+                        <td>${escapeHtml(c.dignidad)}</td>
+                        <td>${escapeHtml(c.jurisdiccion_dpa)}</td>
+                        <td>${escapeHtml(c.periodo)}</td>
+                        <td>${escapeHtml(c.estado_plan)}</td>
+                      </tr>
+                    `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          `
+          : `<div class="state-block">${ICONS.empty}<p>Todavía no hay candidaturas registradas.</p></div>`
+      }
+    </div>
+
+    <h2 style="font-size:15px; margin-bottom:12px;">Nueva candidatura</h2>
+    <div id="admin-candidatura-error"></div>
+
+    <div class="admin-grid">
+      <div class="admin-field">
+        <label for="cand-organizacion">Organización política</label>
+        <input type="text" class="admin-input" id="cand-organizacion" placeholder="Partido Y" />
+      </div>
+      <div class="admin-field">
+        <label for="cand-lista">Número de lista</label>
+        <input type="text" class="admin-input" id="cand-lista" placeholder="18" />
+      </div>
+      <div class="admin-field">
+        <label for="cand-dignidad">Dignidad</label>
+        <input type="text" class="admin-input" id="cand-dignidad" placeholder="vocal_junta_parroquial" />
+      </div>
+      <div class="admin-field">
+        <label for="cand-jurisdiccion">Jurisdicción DPA</label>
+        <input type="text" class="admin-input" id="cand-jurisdiccion" placeholder="0207" />
+      </div>
+      <div class="admin-field">
+        <label for="cand-periodo">Período</label>
+        <input type="text" class="admin-input" id="cand-periodo" placeholder="2027-2031" />
+      </div>
+      <div class="admin-field">
+        <label for="cand-estado-plan">Estado del plan</label>
+        <select class="admin-select" id="cand-estado-plan">
+          <option value="registrado">Registrado ante el CNE</option>
+          <option value="sin_plan_registrado">No registró plan</option>
+        </select>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn--primary btn--block" id="cand-guardar-btn">Guardar candidatura</button>
+  `;
+
+  const errorEl = container.querySelector("#admin-candidatura-error");
+
+  container.querySelector("#cand-guardar-btn").addEventListener("click", async (evento) => {
+    const datos = {
+      organizacion_politica: container.querySelector("#cand-organizacion").value.trim(),
+      lista_numero: container.querySelector("#cand-lista").value.trim(),
+      dignidad: container.querySelector("#cand-dignidad").value.trim(),
+      jurisdiccion_dpa: container.querySelector("#cand-jurisdiccion").value.trim(),
+      periodo: container.querySelector("#cand-periodo").value.trim(),
+      estado_plan: container.querySelector("#cand-estado-plan").value,
+    };
+
+    if (Object.values(datos).some((v) => !v)) {
+      errorEl.innerHTML = `<div class="admin-lista-errores">Completá todos los campos.</div>`;
+      return;
+    }
+
+    errorEl.innerHTML = "";
+    evento.target.disabled = true;
+    try {
+      await api.crearCandidatura(datos);
+      renderCandidaturas(container, api);
+    } catch (err) {
+      errorEl.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`;
+      evento.target.disabled = false;
+    }
+  });
+}
+
 function renderSubir(container, api) {
   container.innerHTML = `
     <p class="admin-paso">Paso 1 de 3 — Subir</p>
@@ -226,7 +346,7 @@ function renderSubir(container, api) {
 
     try {
       const resultado = await api.convertir(selectTipo.value, archivo);
-      renderRevisar(container, api, resultado);
+      await renderRevisar(container, api, resultado);
     } catch (err) {
       estadoEl.innerHTML = "";
       error.textContent = err.message;
@@ -235,7 +355,7 @@ function renderSubir(container, api) {
   });
 }
 
-function renderRevisar(container, api, datosIniciales) {
+async function renderRevisar(container, api, datosIniciales) {
   const estado = {
     borradorId: datosIniciales.borrador_id,
     tipo: datosIniciales.tipo,
@@ -244,6 +364,18 @@ function renderRevisar(container, api, datosIniciales) {
   };
 
   const camposEspecificos = CAMPOS_POR_TIPO[estado.tipo] || [];
+
+  // Un plan de trabajo pertenece a una candidatura que ya tiene que
+  // existir en la DB (ver services/ingest.py) — mejor elegirla de una
+  // lista que hacer que alguien adivine un id numerico a mano.
+  let candidaturas = [];
+  if (estado.tipo === "plan_trabajo") {
+    try {
+      candidaturas = await api.listarCandidaturas();
+    } catch {
+      candidaturas = [];
+    }
+  }
 
   container.innerHTML = `
     <p class="admin-paso">Paso 2 de 3 — Revisar</p>
@@ -255,6 +387,35 @@ function renderRevisar(container, api, datosIniciales) {
       <label for="admin-doc-id">doc_id</label>
       <input type="text" class="admin-input" id="admin-doc-id" placeholder="plan-bolivar-simiatug-junta-18-2027" />
     </div>
+
+    ${
+      estado.tipo === "plan_trabajo"
+        ? `
+          <div class="admin-field">
+            <label for="admin-campo-candidatura_id">Candidatura</label>
+            <select class="admin-select" id="admin-campo-candidatura_id" data-campo="candidatura_id">
+              <option value="">— elegir —</option>
+              ${candidaturas
+                .map(
+                  (c) => `
+                    <option value="${c.id}">
+                      ${escapeHtml(`${c.organizacion_politica} · lista ${c.lista_numero} · ${c.dignidad}`)}
+                    </option>
+                  `
+                )
+                .join("")}
+            </select>
+            <p class="field-hint">
+              ${
+                candidaturas.length
+                  ? "¿No está en la lista? Andá a la sección Candidaturas y registrala primero."
+                  : "No hay candidaturas registradas todavía — andá a la sección Candidaturas primero."
+              }
+            </p>
+          </div>
+        `
+        : ""
+    }
 
     <div class="admin-grid">
       ${camposEspecificos
@@ -310,7 +471,11 @@ function renderRevisar(container, api, datosIniciales) {
     container.querySelectorAll("[data-campo]").forEach((input) => {
       const valor = input.value.trim();
       if (!valor) return;
-      meta[input.dataset.campo] = input.type === "number" ? Number(valor) : valor;
+      // El unico <select> de este loop hoy es candidatura_id, que es
+      // numerico — si se suma otro select no numerico, esto hay que
+      // afinarlo por campo, no por tipo de elemento.
+      const esNumerico = input.type === "number" || input.tagName === "SELECT";
+      meta[input.dataset.campo] = esNumerico ? Number(valor) : valor;
     });
 
     return { markdown: container.querySelector("#admin-markdown").value, meta };

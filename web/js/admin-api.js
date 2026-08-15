@@ -124,3 +124,15 @@ export function ingestarDocumento(docId) {
 export function listarDocumentos() {
   return llamar("/documentos");
 }
+
+export function listarCandidaturas() {
+  return llamar("/candidaturas");
+}
+
+export function crearCandidatura(datos) {
+  return llamar("/candidaturas", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(datos),
+  });
+}

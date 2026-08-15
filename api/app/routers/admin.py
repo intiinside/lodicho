@@ -28,7 +28,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config.settings import settings
-from app.db.models import Documento
+from app.db.models import Candidatura, Documento
+from app.db.models.enums import EstadoPlanCandidatura
 from app.db.session import get_session
 from app.services import admin_auth, corpus_git, corpus_validation, pdf_conversion
 from app.services.ingest import DIR_POR_TIPO, IngestaError, ingestar_archivo
@@ -320,3 +321,72 @@ def listar_documentos(session: Session = Depends(get_session)) -> ListaDocumento
             for d in filas
         ]
     )
+
+
+class CandidaturaResumen(BaseModel):
+    id: int
+    organizacion_politica: str
+    lista_numero: str
+    dignidad: str
+    jurisdiccion_dpa: str
+    periodo: str
+    estado_plan: str
+    doc_id_plan: str | None
+
+
+def _resumen_candidatura(c: Candidatura) -> CandidaturaResumen:
+    return CandidaturaResumen(
+        id=c.id,
+        organizacion_politica=c.organizacion_politica,
+        lista_numero=c.lista_numero,
+        dignidad=c.dignidad,
+        jurisdiccion_dpa=c.jurisdiccion_dpa,
+        periodo=c.periodo,
+        estado_plan=c.estado_plan.value,
+        doc_id_plan=c.doc_id_plan,
+    )
+
+
+@router.get("/candidaturas", response_model=list[CandidaturaResumen], dependencies=[Depends(requiere_admin)])
+def listar_candidaturas(session: Session = Depends(get_session)) -> list[CandidaturaResumen]:
+    filas = session.execute(select(Candidatura).order_by(Candidatura.id.desc())).scalars().all()
+    return [_resumen_candidatura(c) for c in filas]
+
+
+class CandidaturaCrear(BaseModel):
+    organizacion_politica: str
+    lista_numero: str
+    dignidad: str
+    jurisdiccion_dpa: str
+    periodo: str
+    estado_plan: str
+    doc_id_plan: str | None = None
+
+
+@router.post("/candidaturas", response_model=CandidaturaResumen, dependencies=[Depends(requiere_admin)])
+def crear_candidatura(datos: CandidaturaCrear, session: Session = Depends(get_session)) -> CandidaturaResumen:
+    valores_validos = {e.value for e in EstadoPlanCandidatura}
+    if datos.estado_plan not in valores_validos:
+        raise HTTPException(status_code=422, detail=f"estado_plan debe ser uno de {sorted(valores_validos)}")
+
+    campos_vacios = [
+        campo
+        for campo in ("organizacion_politica", "lista_numero", "dignidad", "jurisdiccion_dpa", "periodo")
+        if not getattr(datos, campo).strip()
+    ]
+    if campos_vacios:
+        raise HTTPException(status_code=422, detail=f"Faltan campos: {', '.join(campos_vacios)}")
+
+    candidatura = Candidatura(
+        organizacion_politica=datos.organizacion_politica.strip(),
+        lista_numero=datos.lista_numero.strip(),
+        dignidad=datos.dignidad.strip(),
+        jurisdiccion_dpa=datos.jurisdiccion_dpa.strip(),
+        periodo=datos.periodo.strip(),
+        estado_plan=EstadoPlanCandidatura(datos.estado_plan),
+        doc_id_plan=(datos.doc_id_plan or "").strip() or None,
+    )
+    session.add(candidatura)
+    session.commit()
+    session.refresh(candidatura)
+    return _resumen_candidatura(candidatura)
