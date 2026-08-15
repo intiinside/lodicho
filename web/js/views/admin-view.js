@@ -77,19 +77,19 @@ function renderPanel(container, api, seccion) {
       <p class="dash-hero__subtitle">Conversión estructurada con Docling, validación de reglas e indexación en Qdrant.</p>
     </div>
     
-    <div class="console-segmented-control" role="tablist">
+    <div class="console-tabs" role="tablist">
       ${SECCIONES.map((s) => `
-        <button type="button" class="segmented-btn" aria-selected="${s.clave === seccion ? "true" : "false"}" data-seccion="${s.clave}">
+        <button type="button" class="console-tab" aria-selected="${s.clave === seccion ? "true" : "false"}" data-seccion="${s.clave}">
           ${escapeHtml(s.etiqueta)}
         </button>
       `).join("")}
-      <button type="button" class="segmented-btn" id="admin-salir" style="color: var(--veredicto-falso-text);">Cerrar Sesión</button>
+      <button type="button" class="console-tab" id="admin-salir" style="color: var(--veredicto-falso-text); margin-left: auto;">Cerrar Sesión</button>
     </div>
     
     <div id="admin-contenido"></div>
   `;
 
-  container.querySelectorAll(".segmented-btn[data-seccion]").forEach((boton) => {
+  container.querySelectorAll(".console-tab[data-seccion]").forEach((boton) => {
     boton.addEventListener("click", () => renderPanel(container, api, boton.dataset.seccion));
   });
 
@@ -247,7 +247,7 @@ async function renderCandidaturas(container, api) {
 function renderSubir(container, api) {
   container.innerHTML = `
     <div class="console-card">
-      <div style="margin-bottom: 20px;">
+      <div style="margin-bottom: 16px;">
         <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Tipo de fuente documental</label>
         <select class="console-select" id="admin-tipo">
           <option value="marco_legal">Marco Legal (COOTAD, Leyes)</option>
@@ -258,7 +258,7 @@ function renderSubir(container, api) {
       
       <div class="dropzone-apple" id="admin-dropzone" style="margin-bottom: 20px;">
         <div class="dropzone-apple__icon">${ICONS.upload}</div>
-        <div class="dropzone-apple__title">Arrastra o haz clic para subir el PDF</div>
+        <div class="dropzone-apple__title">Arrastra o haz clic para subir el PDF oficial</div>
         <div class="dropzone-apple__subtitle" id="admin-dropzone-subtitle">Se procesará server-side estructuradamente con Docling</div>
         <input type="file" id="admin-pdf" accept="application/pdf" hidden />
       </div>
