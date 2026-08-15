@@ -27,6 +27,15 @@ COPY scripts ./scripts
 
 RUN pip install --no-cache-dir .
 
+# Pre-descarga los modelos de layout/tableformer/OCR de Docling en el
+# build, para que no se bajen (y bloqueen el primer request real) la
+# primera vez que alguien convierte un PDF en produccion.
+RUN docling-tools models download
+
+# Evita que Docling sature todos los cores del VPS con threads en
+# competencia con uvicorn/otros procesos.
+ENV OMP_NUM_THREADS=4
+
 EXPOSE 8000
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
