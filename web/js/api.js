@@ -1,14 +1,3 @@
-// Cliente de la API. IMPORTANTE: /api/v1/consulta todavia no esta
-// implementado en el backend (ver CLAUDE.md, "Estado actual" — seguimos en
-// Fase 1). Este modulo ya respeta el contrato documentado en CLAUDE.md,
-// seccion "Pipeline de consulta", para no tener que rehacer el frontend
-// cuando el endpoint exista. Si el fetch falla, el error se reporta claro
-// via handlers.onError — nunca se inventan datos para "que se vea bonito".
-// Corriendo en localhost (dev, sin build step: asi se prueba el
-// microfono, que exige contexto seguro y localhost cuenta como tal sin
-// necesitar HTTPS) se apunta al backend de produccion via CORS. Servido
-// desde el propio dominio, se queda en ruta relativa — mismo origen, sin
-// preflight de por medio.
 const PRODUCTION_ORIGIN = "https://lodicho.intiinside.com";
 const ES_LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
 const BASE_URL = `${ES_LOCAL ? PRODUCTION_ORIGIN : ""}/api/v1`;
@@ -21,12 +10,6 @@ export class ErrorAPI extends Error {
   }
 }
 
-/**
- * Bandera de silencio electoral (Regla critica 6). Si el endpoint no
- * existe o falla, se asume que NO hay silencio electoral activo: fallar
- * abierto hacia "mostrar todo" es lo seguro aqui, porque lo peligroso
- * seria lo contrario (silenciar la app por un error de red).
- */
 export async function obtenerEstado() {
   try {
     const res = await fetch(`${BASE_URL}/estado`);
@@ -37,21 +20,6 @@ export async function obtenerEstado() {
   }
 }
 
-/**
- * Envia una consulta (texto, voz o URL) y consume la respuesta como
- * Server-Sent Events sobre POST (no se puede usar EventSource nativo
- * porque solo soporta GET).
- *
- * Eventos SSE asumidos, uno por paso del pipeline (CLAUDE.md):
- *   "rechazo"      -> { motivo }                              intencion no permitida, fin
- *   "candidatura"  -> { candidatura } | { opciones: [...] }    resolucion de candidatura
- *   "evidencia"    -> { declaracion, evidencias: [...] }       entrega inmediata, sin revision
- *   "veredicto"    -> InformeContrastacion (estado="borrador")  solo si se pidio veredicto
- *   "error"        -> { detalle }
- *
- * @param {{tipoInput: "texto"|"voz"|"url", texto?: string, urlFuente?: string, audioBlob?: Blob}} payload
- * @param {{onEvento: (nombre: string, data: any) => void, onError: (err: ErrorAPI) => void, onFin?: () => void}} handlers
- */
 export async function enviarConsulta(payload, handlers) {
   const formData = new FormData();
   formData.set("tipo_input", payload.tipoInput);

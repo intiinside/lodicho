@@ -29,10 +29,10 @@ async function navegar() {
   const ruta = location.hash || "#/";
   const resuelta = resolverRuta(ruta);
   const vista = resuelta.vista || (await resuelta.cargarVista());
-  
+
   montarNavegacion(sidebarEl, mobileMenuEl, ruta);
   if (mobileMenuEl) mobileMenuEl.dataset.open = "false";
-  
+
   mainEl.scrollTop = 0;
   await vista.render(mainEl, resuelta.params);
 }

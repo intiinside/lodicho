@@ -1,35 +1,32 @@
 import { ICONS } from "../icons.js";
-import { leerTema, guardarTema } from "../state.js";
+import { leerTema, toggleTema } from "../state.js";
 
 export function montarTopHeader(container) {
+  const isDark = leerTema() === "dark";
   container.innerHTML = `
     <div class="top-header__left">
       <button type="button" class="top-header__action" id="mobile-menu-toggle" aria-label="Menú">
         ${ICONS.menu}
       </button>
       <div class="top-header__brand">
-        <img src="icons/icon-192.png" alt="" class="top-header__logo" />
-        <div class="top-header__titles">
-          <span>Lo Dicho</span>
-        </div>
+        <img src="icons/icon-192.png" alt="Logo" class="top-header__logo" />
+        <span>Lo Dicho</span>
       </div>
     </div>
     <button type="button" class="top-header__action" id="theme-toggle" aria-label="Cambiar tema">
-      ${ICONS.moon}
+      ${isDark ? ICONS.sun : ICONS.moon}
     </button>
   `;
 
   const botonTema = container.querySelector("#theme-toggle");
   botonTema.addEventListener("click", () => {
-    const actual = leerTema();
-    const ORDEN_TEMA = ["system", "light", "dark"];
-    const siguiente = ORDEN_TEMA[(ORDEN_TEMA.indexOf(actual) + 1) % ORDEN_TEMA.length];
-    guardarTema(siguiente);
+    const nuevo = toggleTema();
+    botonTema.innerHTML = nuevo === "dark" ? ICONS.sun : ICONS.moon;
   });
 
   const botonMenu = container.querySelector("#mobile-menu-toggle");
   const mobileMenu = document.getElementById("mobile-menu");
-  
+
   botonMenu.addEventListener("click", (e) => {
     e.stopPropagation();
     const isOpen = mobileMenu.dataset.open === "true";

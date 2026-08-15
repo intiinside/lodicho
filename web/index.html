@@ -1,38 +1,40 @@
 <!doctype html>
-<html lang="es-EC">
+<html lang="es-EC" data-theme="light">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-  <title>Lo Dicho</title>
-  <meta name="description" content="Contrastación electoral para Bolívar: qué dice el plan de trabajo y qué establece el COOTAD." />
-  <meta name="theme-color" content="#F2F2F7" />
+  <title>Lo Dicho — Contrastación Electoral</title>
+  <meta name="description" content="Contrastación factual con planes de trabajo del CNE y competencias legales (COOTAD)." />
+  <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Lo Dicho" />
+
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
   <div class="app-layout">
-    <!-- Sidebar Desktop -->
-    <aside class="sidebar" id="sidebar"></aside>
-
+    <aside class="sidebar" id="sidebar" aria-label="Navegación principal"></aside>
+    
     <div class="app-viewport">
-      <!-- Header Móvil -->
       <header class="top-header" id="top-header"></header>
+      <nav class="mobile-menu" id="mobile-menu" data-open="false"></nav>
       
-      <!-- Menú Móvil Desplegable -->
-      <nav class="mobile-menu" id="mobile-menu"></nav>
-
-      <main class="app-main" id="app-main" aria-live="polite"></main>
-
+      <main class="app-main" id="app-main" tabindex="-1"></main>
+      
+      <nav class="mobile-bottom-bar" id="mobile-bottom-bar"></nav>
+      
       <div class="sheet-backdrop" id="sheet-backdrop"></div>
-      <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></div>
+      <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" data-open="false"></div>
     </div>
   </div>
+
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <script src="js/vendor/marked.min.js"></script>
   <script type="module" src="js/app.js"></script>

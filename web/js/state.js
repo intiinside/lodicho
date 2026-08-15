@@ -1,6 +1,3 @@
-// Estado local: historial de consultas y preferencia de tema. Vive en
-// localStorage — no hay endpoint de "listar consultas" en el backend
-// todavia, y el historial del propio telefono es util aunque no lo haya.
 const STORAGE_KEY = "lodicho:historial";
 const THEME_KEY = "lodicho:theme";
 const MAX_HISTORIAL = 50;
@@ -35,23 +32,20 @@ export function limpiarHistorial() {
 }
 
 export function leerTema() {
-  return localStorage.getItem(THEME_KEY) || "system";
+  const guardado = localStorage.getItem(THEME_KEY);
+  if (guardado === "dark" || guardado === "light") return guardado;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function guardarTema(tema) {
-  if (tema === "system") {
-    localStorage.removeItem(THEME_KEY);
-  } else {
-    localStorage.setItem(THEME_KEY, tema);
-  }
-  aplicarTema(tema);
+export function toggleTema() {
+  const actual = leerTema();
+  const nuevo = actual === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, nuevo);
+  aplicarTema(nuevo);
+  return nuevo;
 }
 
 export function aplicarTema(tema) {
   const raiz = document.documentElement;
-  if (tema === "dark" || tema === "light") {
-    raiz.setAttribute("data-theme", tema);
-  } else {
-    raiz.removeAttribute("data-theme");
-  }
+  raiz.setAttribute("data-theme", tema);
 }

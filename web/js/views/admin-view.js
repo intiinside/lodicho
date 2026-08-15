@@ -1,5 +1,5 @@
-import { ICONS } from "../icons.js";
-import { escapeHtml, formatearFecha } from "../util.js";
+import { ICONS, mostrarToast } from "../icons.js";
+import { escapeHtml } from "../util.js";
 
 const CAMPOS_POR_TIPO = {
   marco_legal: [
@@ -17,34 +17,33 @@ const CAMPOS_POR_TIPO = {
 };
 
 const SECCIONES = [
-  { clave: "subir", etiqueta: "Subir PDF" },
-  { clave: "documentos", etiqueta: "Documentos" },
+  { clave: "subir", etiqueta: "Ingresar Documento" },
+  { clave: "documentos", etiqueta: "Corpus" },
   { clave: "candidaturas", etiqueta: "Candidaturas" },
 ];
 
 export async function render(container) {
   const api = await import("../admin-api.js");
-
   if (!api.obtenerToken()) {
     renderLogin(container, api);
     return;
   }
-
   renderPanel(container, api, "subir");
 }
 
 function renderLogin(container, api) {
   container.innerHTML = `
     <div class="dash-hero">
-      <h1 class="dash-hero__title">Gestión de Corpus</h1>
-      <p class="dash-hero__subtitle">Acceso restringido al equipo editorial.</p>
+      <h1 class="dash-hero__title">Acceso Editorial</h1>
+      <p class="dash-hero__subtitle">Autenticación para ingesta y conversión de documentos oficiales.</p>
     </div>
     <div class="console-card" style="max-width: 400px;">
-      <div style="margin-bottom: 24px;">
-        <input type="password" class="console-input" id="admin-password" placeholder="Contraseña de acceso" autocomplete="current-password" />
+      <div style="margin-bottom: 16px;">
+        <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Contraseña de Administrador</label>
+        <input type="password" class="console-input" id="admin-password" placeholder="••••••••" autocomplete="current-password" />
       </div>
-      <button type="button" class="btn btn--primary" id="admin-login-btn">Ingresar al Dashboard</button>
-      <p class="field-hint" id="admin-login-error" style="color: var(--veredicto-falso-text);"></p>
+      <button type="button" class="btn-primary" id="admin-login-btn" style="width:100%;">Ingresar</button>
+      <p class="field-hint" id="admin-login-error" style="color: var(--veredicto-falso-text); margin-top:10px; font-size:13px;"></p>
     </div>
   `;
 
@@ -74,23 +73,23 @@ function renderLogin(container, api) {
 function renderPanel(container, api, seccion) {
   container.innerHTML = `
     <div class="dash-hero">
-      <h1 class="dash-hero__title">Gestión de Documentos</h1>
-      <p class="dash-hero__subtitle">Administra los planes de trabajo, leyes y contexto.</p>
+      <h1 class="dash-hero__title">Gestión Editorial</h1>
+      <p class="dash-hero__subtitle">Conversión estructurada con Docling, validación de reglas e indexación en Qdrant.</p>
     </div>
     
-    <div class="console-tabs" role="tablist">
-      ${SECCIONES.map(s => `
-        <button type="button" class="console-tab" aria-selected="${s.clave === seccion ? "true" : "false"}" data-seccion="${s.clave}">
+    <div class="console-segmented-control" role="tablist">
+      ${SECCIONES.map((s) => `
+        <button type="button" class="segmented-btn" aria-selected="${s.clave === seccion ? "true" : "false"}" data-seccion="${s.clave}">
           ${escapeHtml(s.etiqueta)}
         </button>
       `).join("")}
-      <button type="button" class="console-tab" id="admin-salir" style="color: var(--veredicto-falso-text);">Salir</button>
+      <button type="button" class="segmented-btn" id="admin-salir" style="color: var(--veredicto-falso-text);">Cerrar Sesión</button>
     </div>
     
-    <div id="admin-contenido" style="margin-top: 24px;"></div>
+    <div id="admin-contenido"></div>
   `;
 
-  container.querySelectorAll(".console-tab[data-seccion]").forEach((boton) => {
+  container.querySelectorAll(".segmented-btn[data-seccion]").forEach((boton) => {
     boton.addEventListener("click", () => renderPanel(container, api, boton.dataset.seccion));
   });
 
@@ -106,17 +105,19 @@ function renderPanel(container, api, seccion) {
 }
 
 async function renderDocumentos(container, api) {
-  container.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando…</p></div>`;
+  container.innerHTML = `<div class="loading-state"><div class="apple-spinner"></div><p>Cargando documentos del corpus...</p></div>`;
   let documentos;
-  try { ({ documentos } = await api.listarDocumentos()); } 
-  catch (err) { container.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`; return; }
+  try {
+    ({ documentos } = await api.listarDocumentos());
+  } catch (err) {
+    container.innerHTML = `<div class="banner banner--danger">${escapeHtml(err.message)}</div>`;
+    return;
+  }
 
   if (!documentos.length) {
     container.innerHTML = `
-      <div class="loading-state">
-        ${ICONS.empty}
-        <h2>Todavía no hay documentos</h2>
-        <p>Los que subas y confirmes van a aparecer acá.</p>
+      <div class="console-card" style="text-align:center; padding:36px;">
+        <p style="color:var(--color-text-muted);">No hay documentos registrados en el corpus todavía.</p>
       </div>
     `;
     return;
@@ -124,119 +125,94 @@ async function renderDocumentos(container, api) {
 
   container.innerHTML = `
     <div class="console-card" style="padding: 0; overflow-x: auto;">
-      <table class="admin-tabla" style="margin: 0;">
+      <table style="width:100%; border-collapse:collapse; text-align:left;">
         <thead>
-          <tr>
-            <th>doc_id</th>
-            <th>tipo</th>
-            <th>chunks</th>
-            <th>indexado</th>
-            <th>estado</th>
-            <th></th>
+          <tr style="border-bottom: 0.5px solid var(--color-border); font-size:12px; color:var(--color-text-subtle);">
+            <th style="padding:14px 18px;">doc_id</th>
+            <th style="padding:14px 18px;">Tipo</th>
+            <th style="padding:14px 18px;">Chunks</th>
+            <th style="padding:14px 18px;">Acción</th>
           </tr>
         </thead>
         <tbody>
           ${documentos.map(d => `
-            <tr>
-              <td>${escapeHtml(d.doc_id)}</td>
-              <td>${escapeHtml(d.tipo)}</td>
-              <td>${d.n_chunks}</td>
-              <td>${d.indexado_en ? escapeHtml(formatearFecha(d.indexado_en)) : "—"}</td>
-              <td>${escapeHtml(d.estado)}</td>
-              <td><button type="button" class="admin-tabla__accion" data-reingestar="${escapeHtml(d.doc_id)}">Reingestar</button></td>
+            <tr style="border-bottom: 0.5px solid var(--color-border-subtle); font-size:13.5px;">
+              <td style="padding:14px 18px;"><code style="font-family:var(--font-mono);">${escapeHtml(d.doc_id)}</code></td>
+              <td style="padding:14px 18px;">${escapeHtml(d.tipo)}</td>
+              <td style="padding:14px 18px;">${d.n_chunks}</td>
+              <td style="padding:14px 18px;">
+                <button type="button" class="btn-secondary" style="padding:5px 12px; font-size:12px;" data-reingestar="${escapeHtml(d.doc_id)}">
+                  Reindexar
+                </button>
+              </td>
             </tr>
           `).join("")}
         </tbody>
       </table>
     </div>
-    <p class="field-hint" id="admin-documentos-estado"></p>
   `;
 
-  const estadoEl = container.querySelector("#admin-documentos-estado");
   container.querySelectorAll("[data-reingestar]").forEach((boton) => {
     boton.addEventListener("click", async () => {
       const docId = boton.dataset.reingestar;
       boton.disabled = true;
-      estadoEl.textContent = `Reingestando ${docId}…`;
       try {
         const r = await api.ingestarDocumento(docId);
-        estadoEl.textContent = `${docId}: ${r.n_chunks} chunk(s) actualizados.`;
-      } catch (err) { estadoEl.textContent = `${docId}: ${err.message}`; } 
-      finally { boton.disabled = false; }
+        mostrarToast(`${docId}: ${r.n_chunks} chunks indexados`);
+      } catch (err) {
+        mostrarToast(err.message);
+      } finally {
+        boton.disabled = false;
+      }
     });
   });
 }
 
 async function renderCandidaturas(container, api) {
-  container.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando…</p></div>`;
+  container.innerHTML = `<div class="loading-state"><div class="apple-spinner"></div><p>Cargando candidaturas...</p></div>`;
   let candidaturas;
-  try { candidaturas = await api.listarCandidaturas(); } 
-  catch (err) { container.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`; return; }
+  try {
+    candidaturas = await api.listarCandidaturas();
+  } catch (err) {
+    container.innerHTML = `<div class="banner banner--danger">${escapeHtml(err.message)}</div>`;
+    return;
+  }
 
   container.innerHTML = `
-    ${candidaturas.length ? `
-      <div class="console-card" style="padding: 0; overflow-x: auto;">
-        <table class="admin-tabla" style="margin: 0;">
-          <thead>
-            <tr>
-              <th>org</th>
-              <th>lista</th>
-              <th>dignidad</th>
-              <th>jurisdicción</th>
-              <th>período</th>
-              <th>plan</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${candidaturas.map(c => `
-              <tr>
-                <td>${escapeHtml(c.organizacion_politica)}</td>
-                <td>${escapeHtml(c.lista_numero)}</td>
-                <td>${escapeHtml(c.dignidad)}</td>
-                <td>${escapeHtml(c.jurisdiccion_dpa)}</td>
-                <td>${escapeHtml(c.periodo)}</td>
-                <td>${escapeHtml(c.estado_plan)}</td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-    ` : `<div class="loading-state">${ICONS.empty}<p>Todavía no hay candidaturas registradas.</p></div>`}
-
-    <div class="console-card" style="margin-top: 24px;">
-      <h2 style="font-size:16px; margin-bottom:16px;">Nueva candidatura</h2>
+    <div class="console-card">
+      <h2 style="font-size:17px; font-weight:700; margin-bottom:18px;">Registrar Nueva Candidatura</h2>
       <div id="admin-candidatura-error"></div>
       
-      <div class="admin-grid">
-        <div class="admin-field">
-          <label for="cand-organizacion">Organización política</label>
-          <input type="text" class="console-input" id="cand-organizacion" placeholder="Partido Y" />
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Organización política</label>
+          <input type="text" class="console-input" id="cand-organizacion" placeholder="Ej: Movimiento Político" />
         </div>
-        <div class="admin-field">
-          <label for="cand-lista">Número de lista</label>
-          <input type="text" class="console-input" id="cand-lista" placeholder="18" />
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Número de lista</label>
+          <input type="text" class="console-input" id="cand-lista" placeholder="Ej: 18" />
         </div>
-        <div class="admin-field">
-          <label for="cand-dignidad">Dignidad</label>
-          <input type="text" class="console-input" id="cand-dignidad" placeholder="vocal_junta_parroquial" />
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Dignidad</label>
+          <input type="text" class="console-input" id="cand-dignidad" placeholder="Ej: prefecto" />
         </div>
-        <div class="admin-field">
-          <label for="cand-jurisdiccion">Jurisdicción DPA</label>
-          <input type="text" class="console-input" id="cand-jurisdiccion" placeholder="0207" />
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Jurisdicción DPA</label>
+          <input type="text" class="console-input" id="cand-jurisdiccion" placeholder="0200" />
         </div>
-        <div class="admin-field">
-          <label for="cand-periodo">Período</label>
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Período</label>
           <input type="text" class="console-input" id="cand-periodo" placeholder="2027-2031" />
         </div>
-        <div class="admin-field">
-          <label for="cand-estado-plan">Estado del plan</label>
-          <select class="console-input" id="cand-estado-plan">
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Estado del plan</label>
+          <select class="console-select" id="cand-estado-plan">
             <option value="registrado">Registrado ante el CNE</option>
             <option value="sin_plan_registrado">No registró plan</option>
           </select>
         </div>
       </div>
-      <button type="button" class="btn btn--primary btn--block" id="cand-guardar-btn">Guardar candidatura</button>
+      <button type="button" class="btn-primary" id="cand-guardar-btn" style="margin-top:20px;">Guardar Candidatura</button>
     </div>
   `;
 
@@ -252,17 +228,17 @@ async function renderCandidaturas(container, api) {
     };
 
     if (Object.values(datos).some((v) => !v)) {
-      errorEl.innerHTML = `<div class="admin-lista-errores">Completá todos los campos.</div>`;
+      errorEl.innerHTML = `<div class="banner banner--warning">Completa todos los campos obligatorios.</div>`;
       return;
     }
 
-    errorEl.innerHTML = "";
     evento.target.disabled = true;
     try {
       await api.crearCandidatura(datos);
+      mostrarToast("Candidatura creada correctamente");
       renderCandidaturas(container, api);
     } catch (err) {
-      errorEl.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`;
+      errorEl.innerHTML = `<div class="banner banner--danger">${escapeHtml(err.message)}</div>`;
       evento.target.disabled = false;
     }
   });
@@ -271,29 +247,24 @@ async function renderCandidaturas(container, api) {
 function renderSubir(container, api) {
   container.innerHTML = `
     <div class="console-card">
-      <p class="admin-paso">Paso 1 de 3 — Subir</p>
-      
-      <div class="form-group-card" style="margin-bottom: 24px;">
-        <div class="form-row">
-          <label for="admin-tipo">Tipo de documento</label>
-          <select class="console-input" id="admin-tipo" style="padding: 0; height: auto;">
-            <option value="marco_legal">Marco legal (COOTAD, etc.)</option>
-            <option value="plan_trabajo">Plan de trabajo</option>
-            <option value="contexto">Contexto</option>
-          </select>
-        </div>
+      <div style="margin-bottom: 20px;">
+        <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Tipo de fuente documental</label>
+        <select class="console-select" id="admin-tipo">
+          <option value="marco_legal">Marco Legal (COOTAD, Leyes)</option>
+          <option value="plan_trabajo">Plan de Trabajo Oficial CNE</option>
+          <option value="contexto">Contexto Territorial</option>
+        </select>
       </div>
-
-      <div class="dropzone" id="admin-dropzone" style="margin-bottom: 24px;">
-        <div class="dropzone__icon">${ICONS.attach}</div>
-        <div class="dropzone__title">Seleccionar PDF</div>
-        <div class="dropzone__subtitle" id="admin-dropzone-subtitle">Ningún archivo seleccionado</div>
+      
+      <div class="dropzone-apple" id="admin-dropzone" style="margin-bottom: 20px;">
+        <div class="dropzone-apple__icon">${ICONS.upload}</div>
+        <div class="dropzone-apple__title">Arrastra o haz clic para subir el PDF</div>
+        <div class="dropzone-apple__subtitle" id="admin-dropzone-subtitle">Se procesará server-side estructuradamente con Docling</div>
         <input type="file" id="admin-pdf" accept="application/pdf" hidden />
       </div>
-
-      <button type="button" class="btn btn--primary btn--block" id="admin-convertir-btn">Extraer y Convertir a Markdown</button>
-      <p class="field-hint" id="admin-subir-error"></p>
-      <div id="admin-subir-estado"></div>
+      
+      <button type="button" class="btn-primary" id="admin-convertir-btn" style="width:100%;">Convertir a Markdown</button>
+      <div id="admin-subir-estado" style="margin-top:16px;"></div>
     </div>
   `;
 
@@ -302,99 +273,106 @@ function renderSubir(container, api) {
   const dropzone = container.querySelector("#admin-dropzone");
   const dropzoneSubtitle = container.querySelector("#admin-dropzone-subtitle");
   const boton = container.querySelector("#admin-convertir-btn");
-  const error = container.querySelector("#admin-subir-error");
   const estadoEl = container.querySelector("#admin-subir-estado");
 
   dropzone.addEventListener("click", () => inputPdf.click());
   inputPdf.addEventListener("change", () => {
-    if(inputPdf.files[0]) dropzoneSubtitle.textContent = inputPdf.files[0].name;
+    if (inputPdf.files[0]) dropzoneSubtitle.textContent = inputPdf.files[0].name;
   });
 
   boton.addEventListener("click", async () => {
     const archivo = inputPdf.files[0];
-    if (!archivo) { error.textContent = "Elegí un PDF primero."; return; }
-    error.textContent = ""; boton.disabled = true;
-    estadoEl.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Convirtiendo con Docling…</p></div>`;
+    if (!archivo) {
+      estadoEl.innerHTML = `<div class="banner banner--warning">Selecciona un archivo PDF primero.</div>`;
+      return;
+    }
+    boton.disabled = true;
+    estadoEl.innerHTML = `<div class="loading-state"><div class="apple-spinner"></div><p>Docling está extrayendo texto y tablas del documento...</p></div>`;
 
     try {
       const resultado = await api.convertir(selectTipo.value, archivo);
       await renderRevisar(container, api, resultado);
     } catch (err) {
-      estadoEl.innerHTML = ""; error.textContent = err.message; boton.disabled = false;
+      estadoEl.innerHTML = `<div class="banner banner--danger">${escapeHtml(err.message)}</div>`;
+      boton.disabled = false;
     }
   });
 }
 
 async function renderRevisar(container, api, datosIniciales) {
   const estado = {
-    borradorId: datosIniciales.borrador_id, tipo: datosIniciales.tipo,
-    markdown: datosIniciales.markdown, meta: { tipo: datosIniciales.tipo, vigente: true },
+    borradorId: datosIniciales.borrador_id,
+    tipo: datosIniciales.tipo,
+    markdown: datosIniciales.markdown,
+    meta: { tipo: datosIniciales.tipo, vigente: true },
   };
 
   const camposEspecificos = CAMPOS_POR_TIPO[estado.tipo] || [];
   let candidaturas = [];
-  if (estado.tipo === "plan_trabajo") { try { candidaturas = await api.listarCandidaturas(); } catch {} }
+  if (estado.tipo === "plan_trabajo") {
+    try {
+      candidaturas = await api.listarCandidaturas();
+    } catch {}
+  }
 
   container.innerHTML = `
     <div class="console-card">
-      <p class="admin-paso">Paso 2 de 3 — Revisar</p>
+      <h2 style="font-size:17px; font-weight:700; margin-bottom:18px;">Paso 2: Edición y Validación Editorial</h2>
       <div id="admin-validacion"></div>
-
-      <div class="admin-field">
-        <label for="admin-doc-id">doc_id</label>
-        <input type="text" class="console-input" id="admin-doc-id" placeholder="plan-bolivar..." />
+      
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">doc_id (identificador único)</label>
+          <input type="text" class="console-input" id="admin-doc-id" placeholder="ej: plan-bolivar-simiatug-junta-18-2027" />
+        </div>
+        
+        ${estado.tipo === "plan_trabajo" ? `
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Candidatura asociada</label>
+            <select class="console-select" id="admin-campo-candidatura_id" data-campo="candidatura_id">
+              <option value="">-- Seleccionar Candidatura --</option>
+              ${candidaturas.map(c => `<option value="${c.id}">${escapeHtml(`${c.organizacion_politica} - Lista ${c.lista_numero} (${c.dignidad})`)}</option>`).join("")}
+            </select>
+          </div>
+        ` : ""}
+        
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+          ${camposEspecificos.map(c => `
+            <div>
+              <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">${escapeHtml(c.etiqueta)}</label>
+              <input type="${c.tipo}" class="console-input" id="admin-campo-${c.clave}" data-campo="${c.clave}" placeholder="${escapeHtml(c.placeholder)}" />
+            </div>
+          `).join("")}
+        </div>
+        
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">URL fuente oficial (CNE)</label>
+          <input type="url" class="console-input" id="admin-fuente-url" placeholder="https://..." />
+        </div>
+        
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Revisor editorial responsable</label>
+          <input type="text" class="console-input" id="admin-revisado-por" placeholder="nombre.apellido" />
+        </div>
+        
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Cuerpo del Documento (Markdown)</label>
+          <textarea class="console-textarea" id="admin-markdown" style="min-height:280px; font-family:var(--font-mono); font-size:13px;"></textarea>
+        </div>
       </div>
-
-      ${estado.tipo === "plan_trabajo" ? `
-        <div class="admin-field">
-          <label for="admin-campo-candidatura_id">Candidatura</label>
-          <select class="console-input" id="admin-campo-candidatura_id" data-campo="candidatura_id">
-            <option value="">— elegir —</option>
-            ${candidaturas.map(c => `<option value="${c.id}">${escapeHtml(`${c.organizacion_politica} · lista ${c.lista_numero} · ${c.dignidad}`)}</option>`).join("")}
-          </select>
-        </div>` : ""
-      }
-
-      <div class="admin-grid">
-        ${camposEspecificos.map(c => `
-          <div class="admin-field">
-            <label for="admin-campo-${c.clave}">${escapeHtml(c.etiqueta)}</label>
-            <input type="${c.tipo}" class="console-input" id="admin-campo-${c.clave}" data-campo="${c.clave}" placeholder="${escapeHtml(c.placeholder)}" />
-          </div>`).join("")}
+      
+      <div style="display:flex; gap:12px; margin-top:24px; flex-wrap:wrap;">
+        <button type="button" class="btn-secondary" id="admin-validar-btn" style="flex:1;">Validar Reglas</button>
+        <button type="button" class="btn-primary" id="admin-confirmar-btn" style="flex:1;">Confirmar y Publicar</button>
       </div>
-
-      <div class="admin-field">
-        <label for="admin-fuente-url">URL de la fuente</label>
-        <input type="url" class="console-input" id="admin-fuente-url" placeholder="https://…" />
-      </div>
-
-      <div class="admin-field">
-        <label for="admin-revisado-por">Revisado por</label>
-        <input type="text" class="console-input" id="admin-revisado-por" placeholder="tu.nombre" />
-      </div>
-
-      <div class="admin-field admin-checkbox">
-        <input type="checkbox" id="admin-vigente" checked />
-        <label for="admin-vigente" style="margin:0;">Vigente</label>
-      </div>
-
-      <div class="admin-field">
-        <label for="admin-markdown">Markdown (editable)</label>
-        <textarea class="console-textarea admin-textarea--markdown" id="admin-markdown"></textarea>
-      </div>
-
-      <div style="display:flex; gap:8px;">
-        <button type="button" class="btn btn--ghost" id="admin-validar-btn" style="flex:1;">Validar</button>
-        <button type="button" class="btn btn--primary" id="admin-confirmar-btn" style="flex:1;">Confirmar y commitear</button>
-      </div>
-      <button type="button" class="btn btn--ghost btn--block" id="admin-cancelar-btn" style="margin-top:8px;">Cancelar</button>
+      <button type="button" class="btn-secondary" id="admin-cancelar-btn" style="margin-top:12px; width:100%;">Descartar Borrador</button>
     </div>
   `;
 
   container.querySelector("#admin-markdown").value = estado.markdown;
 
   function leerFormulario() {
-    const meta = { tipo: estado.tipo, vigente: container.querySelector("#admin-vigente").checked };
+    const meta = { tipo: estado.tipo, vigente: true };
     const docId = container.querySelector("#admin-doc-id").value.trim();
     if (docId) meta.doc_id = docId;
     const fuenteUrl = container.querySelector("#admin-fuente-url").value.trim();
@@ -405,8 +383,7 @@ async function renderRevisar(container, api, datosIniciales) {
     container.querySelectorAll("[data-campo]").forEach((input) => {
       const valor = input.value.trim();
       if (!valor) return;
-      const esNumerico = input.type === "number" || input.tagName === "SELECT";
-      meta[input.dataset.campo] = esNumerico ? Number(valor) : valor;
+      meta[input.dataset.campo] = input.dataset.campo === "candidatura_id" ? Number(valor) : valor;
     });
 
     return { markdown: container.querySelector("#admin-markdown").value, meta };
@@ -416,30 +393,34 @@ async function renderRevisar(container, api, datosIniciales) {
     const el = container.querySelector("#admin-validacion");
     const partes = [];
     if (resultado.errores?.length) {
-      partes.push(`<div class="admin-lista-errores"><strong>Hay que corregir esto:</strong><ul>${resultado.errores.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul></div>`);
+      partes.push(`<div class="banner banner--danger" style="flex-direction:column; align-items:flex-start;"><strong>Errores que impiden guardar:</strong><ul style="margin-top:6px; padding-left:18px;">${resultado.errores.map(e => `<li>${escapeHtml(e)}</li>`).join("")}</ul></div>`);
     }
     if (resultado.warnings?.length) {
-      partes.push(`<div class="admin-lista-warnings"><strong>Revisar (no bloquea):</strong><ul>${resultado.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`);
+      partes.push(`<div class="banner banner--warning" style="flex-direction:column; align-items:flex-start;"><strong>Observaciones:</strong><ul style="margin-top:6px; padding-left:18px;">${resultado.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`);
     }
     el.innerHTML = partes.join("");
   }
 
   container.querySelector("#admin-validar-btn").addEventListener("click", async () => {
     const { markdown, meta } = leerFormulario();
-    const botonValidar = container.querySelector("#admin-validar-btn");
-    botonValidar.disabled = true;
+    const btn = container.querySelector("#admin-validar-btn");
+    btn.disabled = true;
     try {
       await api.actualizarBorrador(estado.borradorId, markdown, meta);
       const resultado = await api.validarBorrador(estado.borradorId);
       mostrarValidacion(resultado);
-    } catch (err) { mostrarValidacion({ errores: [err.message], warnings: [] }); } 
-    finally { botonValidar.disabled = false; }
+      if (!resultado.errores?.length) mostrarToast("Validación superada");
+    } catch (err) {
+      mostrarValidacion({ errores: [err.message], warnings: [] });
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   container.querySelector("#admin-confirmar-btn").addEventListener("click", async () => {
     const { markdown, meta } = leerFormulario();
-    const botonConfirmar = container.querySelector("#admin-confirmar-btn");
-    botonConfirmar.disabled = true;
+    const btn = container.querySelector("#admin-confirmar-btn");
+    btn.disabled = true;
     try {
       await api.actualizarBorrador(estado.borradorId, markdown, meta);
       const resultado = await api.confirmarBorrador(estado.borradorId);
@@ -447,7 +428,7 @@ async function renderRevisar(container, api, datosIniciales) {
     } catch (err) {
       if (err.detalle?.errores) mostrarValidacion(err.detalle);
       else mostrarValidacion({ errores: [err.message], warnings: [] });
-      botonConfirmar.disabled = false;
+      btn.disabled = false;
     }
   });
 
@@ -460,32 +441,30 @@ async function renderRevisar(container, api, datosIniciales) {
 function renderListo(container, api, resultado) {
   container.innerHTML = `
     <div class="console-card">
-      <p class="admin-paso">Paso 3 de 3 — Ingestar</p>
-      <h1 style="font-size:18px; margin-bottom:16px;">Commiteado al repositorio</h1>
-
-      <div class="admin-resultado">
-        doc_id: ${escapeHtml(resultado.doc_id)}<br />
-        git_sha: ${escapeHtml(resultado.git_sha)}<br />
-        ruta: ${escapeHtml(resultado.ruta_md)}
+      <div class="veredicto-badge veredicto-badge--viable_y_en_plan" style="margin-bottom:14px;">Documento commiteado al corpus</div>
+      <h2 style="font-size:18px; font-weight:700; margin-bottom:12px;">Paso 3: Ingesta Vectorial</h2>
+      
+      <div style="background:var(--color-surface-muted); padding:16px; border-radius:var(--radius-sm); font-family:var(--font-mono); font-size:12px; margin-bottom:20px; word-break:break-all; line-height:1.6;">
+        <strong>doc_id:</strong> ${escapeHtml(resultado.doc_id)}<br />
+        <strong>git_sha:</strong> ${escapeHtml(resultado.git_sha)}<br />
+        <strong>ruta:</strong> ${escapeHtml(resultado.ruta_md)}
       </div>
-
-      <button type="button" class="btn btn--primary btn--block" id="admin-ingestar-btn">Ingestar a Qdrant</button>
-      <div id="admin-ingesta-estado"></div>
-
-      <button type="button" class="btn btn--ghost btn--block" id="admin-otro-btn" style="margin-top:16px;">Cargar otro documento</button>
+      
+      <button type="button" class="btn-primary" id="admin-ingestar-btn" style="width:100%;">Indexar Chunks en Qdrant</button>
+      <div id="admin-ingesta-estado" style="margin-top:14px;"></div>
+      <button type="button" class="btn-secondary" id="admin-otro-btn" style="margin-top:14px; width:100%;">Cargar Otro Documento</button>
     </div>
   `;
 
   const estadoEl = container.querySelector("#admin-ingesta-estado");
-
   container.querySelector("#admin-ingestar-btn").addEventListener("click", async (evento) => {
     evento.target.disabled = true;
-    estadoEl.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Generando embeddings e indexando…</p></div>`;
+    estadoEl.innerHTML = `<div class="loading-state"><div class="apple-spinner"></div><p>Generando embeddings con Gemini e indexando en Qdrant...</p></div>`;
     try {
       const r = await api.ingestarDocumento(resultado.doc_id);
-      estadoEl.innerHTML = `<div class="admin-resultado" style="margin-top: 16px;">Listo: ${r.n_chunks} chunk(s) indexados.</div>`;
+      estadoEl.innerHTML = `<div class="banner banner--viable" style="background:var(--veredicto-viable-bg); color:var(--veredicto-viable-text);">${ICONS.check} <span>Éxito: ${r.n_chunks} fragmentos indexados en Qdrant.</span></div>`;
     } catch (err) {
-      estadoEl.innerHTML = `<div class="admin-lista-errores" style="margin-top: 16px;">${escapeHtml(err.message)}</div>`;
+      estadoEl.innerHTML = `<div class="banner banner--danger">${escapeHtml(err.message)}</div>`;
       evento.target.disabled = false;
     }
   });

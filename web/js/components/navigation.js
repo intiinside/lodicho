@@ -1,55 +1,72 @@
 import { ICONS } from "../icons.js";
-import { leerTema, guardarTema } from "../state.js";
+import { leerTema, toggleTema } from "../state.js";
 
 const ITEMS = [
-  { ruta: "#/", etiqueta: "Preguntar", icono: ICONS.home },
-  { ruta: "#/admin", etiqueta: "Gestionar Documentos", icono: ICONS.folder },
-  { ruta: "#/historial", etiqueta: "Historial Local", icono: ICONS.history },
-  { ruta: "#/acerca", etiqueta: "Acerca de Lo Dicho", icono: ICONS.info },
+  { ruta: "#/", etiqueta: "Consultar", icono: ICONS.home },
+  { ruta: "#/admin", etiqueta: "Ingresar Documentos", icono: ICONS.folder },
+  { ruta: "#/historial", etiqueta: "Historial", icono: ICONS.history },
+  { ruta: "#/acerca", etiqueta: "Metodología", icono: ICONS.info },
 ];
 
 export function montarNavegacion(sidebarContainer, mobileMenuContainer, rutaActiva) {
-  // Sidebar (Desktop)
   if (sidebarContainer) {
+    const isDark = leerTema() === "dark";
     sidebarContainer.innerHTML = `
       <div class="sidebar__brand">
         <a href="#/" class="sidebar__brand-link">
-          <img src="icons/icon-192.png" alt="Lo Dicho" class="sidebar__logo" />
+          <img src="icons/icon.svg" alt="Lo Dicho" class="sidebar__logo" />
           <div class="sidebar__title-block">
             <span class="sidebar__title">Lo Dicho</span>
-            <span class="sidebar__tag">Dashboard</span>
+            <span class="sidebar__tag">Ecuador</span>
           </div>
         </a>
       </div>
       
       <nav class="sidebar__menu">
-        <div class="sidebar__section-title">Principal</div>
-        ${ITEMS.slice(0, 2).map(item => renderItem(item, rutaActiva, 'sidebar__item')).join("")}
-        
-        <div class="sidebar__section-title" style="margin-top: 24px;">General</div>
-        ${ITEMS.slice(2).map(item => renderItem(item, rutaActiva, 'sidebar__item')).join("")}
+        <div class="sidebar__section-title">Navegación</div>
+        ${ITEMS.map((item) => renderItem(item, rutaActiva, "sidebar__item")).join("")}
       </nav>
       
       <div class="sidebar__footer">
         <button type="button" class="sidebar__theme-btn" id="sidebar-theme-toggle">
-          ${ICONS.moon} <span>Cambiar tema</span>
+          ${isDark ? ICONS.sun : ICONS.moon}
+          <span id="sidebar-theme-label">${isDark ? "Modo Claro" : "Modo Oscuro"}</span>
         </button>
       </div>
     `;
 
     const btnTheme = sidebarContainer.querySelector("#sidebar-theme-toggle");
-    if (btnTheme) btnTheme.addEventListener("click", () => toggleTheme());
+    if (btnTheme) {
+      btnTheme.addEventListener("click", () => {
+        const nuevo = toggleTema();
+        const icon = nuevo === "dark" ? ICONS.sun : ICONS.moon;
+        const label = nuevo === "dark" ? "Modo Claro" : "Modo Oscuro";
+        btnTheme.innerHTML = `${icon} <span id="sidebar-theme-label">${label}</span>`;
+      });
+    }
   }
 
-  // Mobile Menu
   if (mobileMenuContainer) {
-    mobileMenuContainer.innerHTML = ITEMS.map(item => renderItem(item, rutaActiva, 'mobile-menu__item')).join("");
+    mobileMenuContainer.innerHTML = ITEMS.map((item) =>
+      renderItem(item, rutaActiva, "mobile-menu__item")
+    ).join("");
+  }
+
+  const bottomBar = document.getElementById("mobile-bottom-bar");
+  if (bottomBar) {
+    const mainItems = ITEMS.filter(i => i.ruta !== "#/admin");
+    bottomBar.innerHTML = mainItems.map((item) => `
+      <a href="${item.ruta}" class="bottom-nav__item" ${esActiva(item.ruta, rutaActiva) ? 'aria-current="page"' : ""}>
+        ${item.icono}
+        <span>${item.etiqueta}</span>
+      </a>
+    `).join("");
   }
 }
 
 function renderItem(item, rutaActiva, baseClass) {
   const activo = esActiva(item.ruta, rutaActiva);
-  const claseActiva = activo ? `${baseClass}--active` : '';
+  const claseActiva = activo ? `${baseClass}--active` : "";
   return `
     <a href="${item.ruta}" class="${baseClass} ${claseActiva}">
       ${item.icono}
@@ -61,11 +78,4 @@ function renderItem(item, rutaActiva, baseClass) {
 function esActiva(ruta, rutaActiva) {
   if (ruta === "#/") return rutaActiva === "#/" || rutaActiva === "" || rutaActiva === "#";
   return rutaActiva.startsWith(ruta);
-}
-
-function toggleTheme() {
-  const actual = leerTema();
-  const ORDEN_TEMA = ["system", "light", "dark"];
-  const siguiente = ORDEN_TEMA[(ORDEN_TEMA.indexOf(actual) + 1) % ORDEN_TEMA.length];
-  guardarTema(siguiente);
 }

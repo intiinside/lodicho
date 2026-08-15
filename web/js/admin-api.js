@@ -1,6 +1,3 @@
-// Cliente del panel de admin. Separado de api.js a proposito: se carga
-// via import() dinamico solo cuando alguien navega a #/admin, para no
-// mandarle este codigo a cada visitante publico de la app.
 import { ErrorAPI } from "./api.js";
 
 const PRODUCTION_ORIGIN = "https://lodicho.intiinside.com";
@@ -35,15 +32,13 @@ async function llamar(path, opciones = {}) {
 
   if (res.status === 401) {
     cerrarSesion();
-    throw new ErrorAPI("Sesión inválida o expirada — volvé a entrar.");
+    throw new ErrorAPI("Sesión inválida o expirada — vuelve a ingresar.");
   }
 
   let cuerpo = null;
   try {
     cuerpo = await res.json();
-  } catch {
-    /* respuesta sin cuerpo JSON, ej. un 204 */
-  }
+  } catch {}
 
   if (!res.ok) {
     const error = new ErrorAPI(
@@ -57,9 +52,6 @@ async function llamar(path, opciones = {}) {
 }
 
 export async function login(password) {
-  // No pasa por llamar(): ese helper trata cualquier 401 como "sesion
-  // expirada" y limpia el token — pero un 401 aca es "contraseña
-  // incorrecta", un caso distinto que no debe pisar ese mensaje.
   let res;
   try {
     res = await fetch(`${BASE_URL}/login`, {
@@ -74,12 +66,10 @@ export async function login(password) {
   let cuerpo = null;
   try {
     cuerpo = await res.json();
-  } catch {
-    /* noop */
-  }
+  } catch {}
 
   if (!res.ok) {
-    throw new ErrorAPI(typeof cuerpo?.detail === "string" ? cuerpo.detail : `El servidor respondió ${res.status}.`);
+    throw new ErrorAPI(typeof cuerpo?.detail === "string" ? cuerpo.detail : "Contraseña incorrecta.");
   }
 
   guardarToken(cuerpo.token);

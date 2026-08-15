@@ -1,9 +1,4 @@
-// App shell instalable. Regla dura: los datos (todo lo que cuelga de /api/)
-// nunca se sirven desde cache — un informe o una cifra vieja mostrada como
-// si fuera vigente es peor que no mostrar nada. Solo el shell estatico
-// (HTML/CSS/JS/iconos) se cachea, con stale-while-revalidate.
-const CACHE_VERSION = "lodicho-shell-v2";
-
+const CACHE_VERSION = "lodicho-shell-v3";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -12,10 +7,13 @@ const APP_SHELL = [
   "/css/styles.css",
   "/js/app.js",
   "/js/api.js",
+  "/js/admin-api.js",
   "/js/state.js",
+  "/js/util.js",
+  "/js/icons.js",
   "/js/vendor/marked.min.js",
-  "/js/components/bottom-nav.js",
   "/js/components/top-header.js",
+  "/js/components/navigation.js",
   "/js/components/composer.js",
   "/js/components/veredicto-badge.js",
   "/js/components/evidencia-sheet.js",
@@ -25,6 +23,7 @@ const APP_SHELL = [
   "/js/views/resultado-view.js",
   "/js/views/historial-view.js",
   "/js/views/acerca-view.js",
+  "/icons/icon.svg",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];
@@ -34,11 +33,9 @@ self.addEventListener("install", (event) => {
     caches
       .open(CACHE_VERSION)
       .then((cache) => cache.addAll(APP_SHELL))
-      .catch(() => {
-        // Si un asset individual falla (p.ej. corriendo sin todas las
-        // vistas todavia), no tumbar la instalacion completa del SW.
-      })
+      .catch(() => {})
   );
+  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -52,25 +49,14 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// app.js pide skip-waiting explicitamente cuando el usuario acepta
-// actualizar, para no recargarle la app a media consulta sin avisar.
-self.addEventListener("message", (event) => {
-  if (event.data === "skip-waiting") {
-    self.skipWaiting();
-  }
-});
-
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
-
   const url = new URL(request.url);
-
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(fetch(request).catch(() => caches.match("/offline.html")));
     return;
   }
-
   event.respondWith(
     caches.match(request).then((cached) => {
       const network = fetch(request)
