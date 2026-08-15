@@ -6,8 +6,7 @@ responde con evidencia recuperada de un corpus curado: qué dice el plan de trab
 registrado y qué establece el COOTAD sobre las competencias de ese nivel de gobierno.
 
 **Dominio:** lodicho.intiinside.com
-**Piloto:** provincia de Bolívar (Guaranda, Simiátug). No ampliar cobertura antes de
-que el corpus de Bolívar esté completo y verificado.
+
 
 ---
 
