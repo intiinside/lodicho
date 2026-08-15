@@ -847,6 +847,74 @@ svg {
   margin-bottom: 24px;
 }
 
+.admin-login-wrap {
+  min-height: calc(100vh - 160px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.admin-login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--color-surface-solid);
+  border: 0.5px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md, var(--shadow-sm));
+  padding: 40px 32px;
+  text-align: center;
+}
+
+.admin-login-card__icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 20px;
+  border-radius: var(--radius-md);
+  background: var(--color-brand);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-login-card__icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.admin-login-card__title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.admin-login-card__subtitle {
+  font-size: 13.5px;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-bottom: 28px;
+}
+
+.admin-login-card__field {
+  text-align: left;
+  margin-bottom: 18px;
+}
+
+.admin-login-card__field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-subtle);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.admin-login-card .console-input {
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
 .toast-container {
   position: fixed;
   top: 20px;

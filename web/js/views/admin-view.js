@@ -33,17 +33,23 @@ export async function render(container) {
 
 function renderLogin(container, api) {
   container.innerHTML = `
-    <div class="dash-hero">
-      <h1 class="dash-hero__title">Acceso Editorial</h1>
-      <p class="dash-hero__subtitle">Autenticación para ingesta y conversión de documentos oficiales.</p>
-    </div>
-    <div class="console-card" style="max-width: 400px;">
-      <div style="margin-bottom: 16px;">
-        <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Contraseña de Administrador</label>
-        <input type="password" class="console-input" id="admin-password" placeholder="••••••••" autocomplete="current-password" />
+    <div class="admin-login-wrap">
+      <div class="admin-login-card">
+        <div class="admin-login-card__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <h1 class="admin-login-card__title">Acceso Editorial</h1>
+        <p class="admin-login-card__subtitle">Autenticación para ingesta y conversión de documentos oficiales.</p>
+        <div class="admin-login-card__field">
+          <label for="admin-password">Contraseña de administrador</label>
+          <input type="password" class="console-input" id="admin-password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button type="button" class="btn-primary" id="admin-login-btn" style="width:100%;">Ingresar</button>
+        <p class="field-hint" id="admin-login-error" style="color: var(--veredicto-falso-text); margin-top:12px; font-size:13px;"></p>
       </div>
-      <button type="button" class="btn-primary" id="admin-login-btn" style="width:100%;">Ingresar</button>
-      <p class="field-hint" id="admin-login-error" style="color: var(--veredicto-falso-text); margin-top:10px; font-size:13px;"></p>
     </div>
   `;
 
