@@ -18,6 +18,7 @@ from app.services import embeddings, evidencia, qdrant_client, sparse
 class _FakePunto:
     payload: dict
     score: float = 0.9
+    id: str = "point-1"
 
 
 def _candidatura(estado: EstadoPlanCandidatura) -> Candidatura:

@@ -212,7 +212,7 @@ def test_fallback_valido_devuelve_solo_marco_legal_y_candidatura_null(client, mo
     def _fake_recuperar(texto, *, candidatura, nivel_gobierno, **kwargs):
         assert candidatura is None
         assert nivel_gobierno == "cantonal"
-        return [EvidenciaItem(paso="marco_legal", texto="art 55", score=0.9, doc_id="cootad", git_sha="abc")]
+        return [EvidenciaItem(paso="marco_legal", texto="art 55", score=0.9, doc_id="cootad", git_sha="abc", point_id="p1")]
 
     monkeypatch.setattr("app.routers.consulta.recuperar_evidencia", _fake_recuperar)
 
@@ -247,7 +247,7 @@ def test_candidatura_sin_plan_registrado_solo_evidencia_marco_legal(client, db_s
     candidatura = _crear_candidatura(db_session, estado_plan=EstadoPlanCandidatura.sin_plan_registrado)
 
     def _fake_recuperar(texto, *, candidatura, nivel_gobierno, **kwargs):
-        return [EvidenciaItem(paso="marco_legal", texto="art 1", score=0.5, doc_id="cootad", git_sha="abc")]
+        return [EvidenciaItem(paso="marco_legal", texto="art 1", score=0.5, doc_id="cootad", git_sha="abc", point_id="p2")]
 
     monkeypatch.setattr("app.routers.consulta.recuperar_evidencia", _fake_recuperar)
 

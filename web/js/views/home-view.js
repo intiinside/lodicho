@@ -84,9 +84,6 @@ async function ejecutarConsulta(container, payload, estadoEl) {
     </div>
   `;
 
-  let informeActual = null;
-  let cardActual = null;
-
   await enviarConsulta(payload, {
     onEvento(nombre, data) {
       if (nombre === "rechazo") {
@@ -107,32 +104,15 @@ async function ejecutarConsulta(container, payload, estadoEl) {
       }
       if (nombre === "evidencia") {
         estadoEl.innerHTML = "";
-        informeActual = {
+        const informe = guardarEnHistorial({
           candidatura: data.candidatura || null,
+          declaracionId: data.declaracion?.id ?? null,
           resumenMarkdown: construirResumenMarkdown(data, payload),
           veredicto: null,
           estado: "borrador",
           evidencias: data.evidencias || [],
-        };
-        cardActual = crearInformeCard(informeActual);
-        streamEl.prepend(cardActual);
-        informeActual = guardarEnHistorial(informeActual);
-        return;
-      }
-      if (nombre === "veredicto" && informeActual && cardActual) {
-        informeActual = {
-          ...informeActual,
-          veredicto: data.veredicto,
-          estado: data.estado,
-          factibilidad_score: data.factibilidad_score,
-          factibilidad_factores: data.factibilidad_factores,
-          respuesta_candidato: data.respuesta_candidato,
-          evidencias: data.evidencias || informeActual.evidencias,
-        };
-        const nuevaCard = crearInformeCard(informeActual);
-        cardActual.replaceWith(nuevaCard);
-        cardActual = nuevaCard;
-        guardarEnHistorial(informeActual);
+        });
+        streamEl.prepend(crearInformeCard(informe));
         return;
       }
       if (nombre === "error") {
