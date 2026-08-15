@@ -1,10 +1,10 @@
-// Pantalla principal: elegir metodo de entrada (texto/voz/url), enviar la
-// consulta, y ver los resultados aparecer como tarjetas de feed a medida
-// que llegan por SSE — evidencia primero (paso 6, entrega inmediata), el
-// veredicto despues si se pidio (paso 7, siempre "borrador" hasta que un
-// revisor lo publique).
+// Pantalla principal: un composer unico (texto/voz/URL en una sola caja,
+// el modo se infiere al enviar — ver components/composer.js) y los
+// resultados aparecen como tarjetas de feed a medida que llegan por SSE:
+// evidencia primero (paso 6, entrega inmediata), el veredicto despues si
+// se pidio (paso 7, siempre "borrador" hasta que un revisor lo publique).
 import { enviarConsulta, obtenerEstado } from "../api.js";
-import { crearVoiceRecorder } from "../components/voice-recorder.js";
+import { crearComposer } from "../components/composer.js";
 import { crearInformeCard } from "../components/informe-card.js";
 import { bannerSilencioHtml, bannerHtml } from "../components/banner-silencio.js";
 import { guardarEnHistorial } from "../state.js";
@@ -12,32 +12,12 @@ import { escapeHtml } from "../util.js";
 
 export async function render(container) {
   container.innerHTML = `
+    <div class="home-intro">
+      <h1 class="home-intro__titulo">Contrastación y Verificación Electoral</h1>
+      <p class="home-intro__subtitulo">Cotejo factual con planes de trabajo inscritos en el CNE y competencias legales.</p>
+    </div>
     <div id="home-banner"></div>
-
-    <div class="input-tabs" role="tablist">
-      <button type="button" class="input-tabs__btn" role="tab" data-tab="texto" aria-selected="true">Texto</button>
-      <button type="button" class="input-tabs__btn" role="tab" data-tab="voz" aria-selected="false">Voz</button>
-      <button type="button" class="input-tabs__btn" role="tab" data-tab="url" aria-selected="false">URL</button>
-    </div>
-
-    <div class="input-panel" data-panel="texto" data-active="true">
-      <textarea class="textarea-field" id="campo-texto" placeholder="Pega o escribe lo que dijo el candidato…"></textarea>
-      <p class="field-hint">Cita textual, o dictado tuyo describiendo la propuesta.</p>
-    </div>
-
-    <div class="input-panel" data-panel="voz" data-active="false">
-      <div id="voice-recorder-slot"></div>
-      <textarea class="textarea-field" id="campo-voz-texto" placeholder="El texto reconocido aparece aquí — revísalo antes de enviar."></textarea>
-      <p class="field-hint">Guardamos el audio original como evidencia ante cualquier impugnación.</p>
-    </div>
-
-    <div class="input-panel" data-panel="url" data-active="false">
-      <input class="text-field" id="campo-url" type="url" placeholder="https://…" inputmode="url" autocapitalize="off" autocorrect="off" />
-      <p class="field-hint">Nota de prensa o publicación. Su contenido se trata como no confiable hasta separarlo en citas.</p>
-    </div>
-
-    <button type="button" class="btn btn--primary" id="btn-enviar" style="margin-top: var(--space-4);">Consultar</button>
-
+    <div id="composer-slot"></div>
     <div id="home-estado"></div>
     <div id="home-resultados"></div>
   `;
@@ -46,75 +26,16 @@ export async function render(container) {
     container.querySelector("#home-banner").innerHTML = bannerSilencioHtml(estado.modo_silencio_electoral);
   });
 
-  const estadoVoz = { audioBlob: null };
-
-  configurarTabs(container);
-  configurarVoz(container, estadoVoz);
-  container.querySelector("#btn-enviar").addEventListener("click", () => manejarEnvio(container, estadoVoz));
-}
-
-function configurarTabs(container) {
-  const botones = [...container.querySelectorAll('[role="tab"]')];
-  botones.forEach((boton) => {
-    boton.addEventListener("click", () => {
-      botones.forEach((b) => b.setAttribute("aria-selected", String(b === boton)));
-      container.querySelectorAll(".input-panel").forEach((panel) => {
-        panel.dataset.active = String(panel.dataset.panel === boton.dataset.tab);
-      });
-    });
-  });
-}
-
-function configurarVoz(container, estadoVoz) {
-  const slot = container.querySelector("#voice-recorder-slot");
-  const campoVozTexto = container.querySelector("#campo-voz-texto");
-  const grabador = crearVoiceRecorder({
-    onTranscripcion: (texto, blob) => {
-      if (texto) campoVozTexto.value = texto;
-      estadoVoz.audioBlob = blob;
-    },
-  });
-  slot.appendChild(grabador);
-}
-
-function tabActiva(container) {
-  return container.querySelector('[role="tab"][aria-selected="true"]').dataset.tab;
-}
-
-function construirPayload(container, estadoVoz) {
-  const tab = tabActiva(container);
-  if (tab === "texto") {
-    const texto = container.querySelector("#campo-texto").value.trim();
-    if (!texto) return { error: "Escribe o pega una declaración primero." };
-    return { payload: { tipoInput: "texto", texto } };
-  }
-  if (tab === "voz") {
-    const texto = container.querySelector("#campo-voz-texto").value.trim();
-    if (!texto && !estadoVoz.audioBlob) return { error: "Graba o escribe algo primero." };
-    return { payload: { tipoInput: "voz", texto, audioBlob: estadoVoz.audioBlob } };
-  }
-  const url = container.querySelector("#campo-url").value.trim();
-  if (!url) return { error: "Pega la URL de la nota de prensa." };
-  return { payload: { tipoInput: "url", urlFuente: url } };
-}
-
-async function manejarEnvio(container, estadoVoz) {
   const estadoEl = container.querySelector("#home-estado");
-  const boton = container.querySelector("#btn-enviar");
-
-  const { payload, error } = construirPayload(container, estadoVoz);
-  if (error) {
-    estadoEl.innerHTML = bannerHtml("warning", escapeHtml(error));
-    return;
-  }
-
-  await ejecutarConsulta(container, payload, { estadoEl, boton });
+  const composer = crearComposer({
+    onEnviar: (payload) => ejecutarConsulta(container, payload, estadoEl),
+  });
+  container.querySelector("#composer-slot").appendChild(composer);
 }
 
-async function ejecutarConsulta(container, payload, { estadoEl, boton }) {
+async function ejecutarConsulta(container, payload, estadoEl) {
   const contenedorResultados = container.querySelector("#home-resultados");
 
-  boton.disabled = true;
   estadoEl.innerHTML = `<div class="state-block"><div class="spinner"></div><p>Consultando…</p></div>`;
 
   let informeActual = null;
@@ -129,7 +50,7 @@ async function ejecutarConsulta(container, payload, { estadoEl, boton }) {
 
       if (nombre === "candidatura" && data.opciones) {
         mostrarOpcionesCandidatura(estadoEl, data.opciones, (candidaturaId) => {
-          ejecutarConsulta(container, { ...payload, candidaturaId }, { estadoEl, boton });
+          ejecutarConsulta(container, { ...payload, candidaturaId }, estadoEl);
         });
         return;
       }
@@ -171,8 +92,6 @@ async function ejecutarConsulta(container, payload, { estadoEl, boton }) {
       estadoEl.innerHTML = bannerHtml("warning", escapeHtml(err.message));
     },
   });
-
-  boton.disabled = false;
 }
 
 function mostrarOpcionesCandidatura(estadoEl, opciones, onElegir) {

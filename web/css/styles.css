@@ -203,6 +203,22 @@ input, textarea { font: inherit; color: inherit; }
   font-weight: 600;
 }
 
+/* ---------- Intro de Inicio ---------- */
+.home-intro {
+  margin-bottom: var(--space-4);
+}
+.home-intro__titulo {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: var(--space-1);
+}
+.home-intro__subtitulo {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
 /* ---------- Botones ---------- */
 .btn {
   display: inline-flex;
@@ -225,123 +241,117 @@ input, textarea { font: inherit; color: inherit; }
 .btn--ghost { background: transparent; color: var(--color-primary); border: 1px solid var(--color-border); }
 .btn--block { width: 100%; }
 
-/* ---------- Tabs de metodo de entrada ---------- */
-.input-tabs {
-  display: flex;
-  background: var(--color-surface-alt);
-  border-radius: var(--radius-pill);
-  padding: 3px;
-  margin-bottom: var(--space-4);
-}
-.input-tabs__btn {
-  flex: 1;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-pill);
-  padding: 9px 0;
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-}
-.input-tabs__btn[aria-selected="true"] {
-  background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: var(--shadow-sm);
-}
-
-.input-panel { display: none; }
-.input-panel[data-active="true"] { display: block; }
-
-.textarea-field {
-  width: 100%;
-  min-height: 120px;
-  resize: vertical;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  background: var(--color-surface);
-  font-size: 15px;
-  line-height: 1.4;
-}
-.textarea-field:focus { border-color: var(--color-primary); }
-
-.text-field {
-  width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 12px var(--space-3);
-  background: var(--color-surface);
-  font-size: 15px;
-}
-.text-field:focus { border-color: var(--color-primary); }
-
 .field-hint {
   font-size: 12px;
   color: var(--color-text-secondary);
   margin-top: var(--space-2);
 }
 
-/* ---------- Grabador de voz ---------- */
-.voice-recorder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-5) 0 var(--space-3);
+/* ---------- Composer unico (texto/voz/URL en una sola caja) ---------- */
+.composer {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-4);
 }
 
-.voice-recorder__button {
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
+.composer__textarea {
+  width: 100%;
   border: none;
-  background: var(--color-danger);
-  color: #fff;
+  background: transparent;
+  resize: none;
+  font-size: 16px;
+  line-height: 1.4;
+  padding: var(--space-1) var(--space-1) var(--space-2);
+  max-height: 200px;
+  font-family: inherit;
+  color: var(--color-text);
+}
+.composer__textarea:focus { outline: none; }
+.composer__textarea::placeholder { color: var(--color-text-secondary); }
+
+.composer__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-pill);
+  padding: 4px 8px 4px 10px;
+  font-size: 12px;
+  margin: 0 0 var(--space-2) var(--space-1);
+}
+.composer__chip svg:first-child { width: 14px; height: 14px; color: var(--color-primary); }
+.composer__chip button {
+  border: none;
+  background: none;
   display: grid;
   place-items: center;
   cursor: pointer;
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-danger) 16%, transparent);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  color: var(--color-text-secondary);
+  padding: 2px;
 }
-.voice-recorder__button svg { width: 32px; height: 32px; }
+.composer__chip button svg { width: 14px; height: 14px; }
 
-.voice-recorder__button[data-recording="true"] {
+.composer__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.composer__tools { display: flex; gap: 2px; }
+
+.composer__tool {
+  width: 38px;
+  height: 38px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.composer__tool svg { width: 20px; height: 20px; }
+.composer__tool:active { background: var(--color-surface-alt); }
+.composer__tool[data-recording="true"] {
+  color: #fff;
+  background: var(--color-danger);
   animation: pulse-rec 1.4s ease-in-out infinite;
 }
 
 @keyframes pulse-rec {
-  0%, 100% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-danger) 16%, transparent); }
-  50% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--color-danger) 10%, transparent); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-danger) 35%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-danger) 10%, transparent); }
 }
 
-.voice-recorder__status {
-  font-size: 13px;
+.composer__enviar {
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-border);
   color: var(--color-text-secondary);
-  min-height: 18px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.08s ease;
 }
-
-.voice-recorder__transcript {
-  width: 100%;
-  min-height: 80px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-  font-size: 15px;
-  line-height: 1.4;
-  background: var(--color-surface-alt);
+.composer__enviar:active { transform: scale(0.94); }
+.composer__enviar svg { width: 18px; height: 18px; }
+.composer__enviar:not(:disabled) {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
 }
+.composer__enviar:disabled { cursor: not-allowed; }
 
-.voice-recorder__transcript[data-low-confidence="true"] {
-  border-color: var(--veredicto-no_consta_en_plan);
-}
-
-.voice-recorder__warning {
+.composer__status {
   font-size: 12px;
-  color: var(--veredicto-no_consta_en_plan);
-  display: none;
+  color: var(--color-text-secondary);
+  min-height: 16px;
+  margin: var(--space-1) var(--space-1) 0;
 }
-.voice-recorder__warning[data-visible="true"] { display: block; }
 
 /* ---------- Banner silencio electoral / avisos ---------- */
 .banner {

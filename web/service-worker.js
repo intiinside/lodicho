@@ -2,7 +2,7 @@
 // nunca se sirven desde cache — un informe o una cifra vieja mostrada como
 // si fuera vigente es peor que no mostrar nada. Solo el shell estatico
 // (HTML/CSS/JS/iconos) se cachea, con stale-while-revalidate.
-const CACHE_VERSION = "lodicho-shell-v1";
+const CACHE_VERSION = "lodicho-shell-v2";
 
 const APP_SHELL = [
   "/",
@@ -16,7 +16,7 @@ const APP_SHELL = [
   "/js/vendor/marked.min.js",
   "/js/components/bottom-nav.js",
   "/js/components/top-header.js",
-  "/js/components/voice-recorder.js",
+  "/js/components/composer.js",
   "/js/components/veredicto-badge.js",
   "/js/components/evidencia-sheet.js",
   "/js/components/banner-silencio.js",
