@@ -12,6 +12,7 @@ adelante, pasa a una tabla en Postgres.
 """
 from __future__ import annotations
 
+import asyncio
 import shutil
 import tempfile
 import uuid
@@ -128,17 +129,24 @@ async def convertir(tipo: str = Form(...), pdf: UploadFile = File(...)) -> Conve
     pdf_sha256 = pdf_conversion.calcular_sha256(pdf_path)
 
     try:
-        markdown = pdf_conversion.convertir_pdf_a_markdown(pdf_path)
+        # Docling puede tardar minutos en un PDF real (mas la primera vez,
+        # que carga los modelos de layout). Corrido tal cual, sincrono,
+        # dentro de un endpoint async, bloquearia el unico event loop del
+        # proceso — nadie mas se podria atender mientras tanto, ni
+        # siquiera /health. asyncio.to_thread lo saca del loop.
+        markdown = await asyncio.to_thread(pdf_conversion.convertir_pdf_a_markdown, pdf_path)
     except Exception as exc:
         pdf_path.unlink(missing_ok=True)
         raise HTTPException(status_code=422, detail=f"No se pudo convertir el PDF: {exc}") from exc
+
+    texto_pdf = await asyncio.to_thread(_extraer_texto_plano, pdf_path)
 
     _borradores[borrador_id] = Borrador(
         markdown=markdown,
         meta={"tipo": tipo, "vigente": True},
         pdf_temp_path=pdf_path,
         pdf_sha256=pdf_sha256,
-        texto_pdf=_extraer_texto_plano(pdf_path),
+        texto_pdf=texto_pdf,
     )
 
     return ConvertirResponse(borrador_id=borrador_id, markdown=markdown, pdf_sha256=pdf_sha256, tipo=tipo)
