@@ -187,9 +187,9 @@ svg {
 }
 
 .sidebar__logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
   object-fit: contain;
 }
 

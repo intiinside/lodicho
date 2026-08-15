@@ -72,6 +72,21 @@ export async function render(container, params) {
 
     <section class="dash-section">
       <div class="dash-section__header">
+        <h2 class="dash-section__title">Propuestas del plan de trabajo</h2>
+      </div>
+      <div id="candidato-propuestas">
+        ${
+          (candidatura.propuestas || []).length
+            ? candidatura.propuestas.map(propuestaHtml).join("")
+            : `<div class="console-card" style="text-align:center; padding: 24px;">
+                 <p style="color:var(--color-text-muted);">Todavía no hay propuestas cargadas del plan de trabajo de esta candidatura.</p>
+               </div>`
+        }
+      </div>
+    </section>
+
+    <section class="dash-section">
+      <div class="dash-section__header">
         <h2 class="dash-section__title">Informes publicados</h2>
       </div>
       <div id="candidato-informes">
@@ -90,6 +105,15 @@ export async function render(container, params) {
     guardarCandidaturaPreseleccionada({ id: candidatura.id, nombre: nombres });
     location.hash = "#/";
   });
+}
+
+function propuestaHtml(texto) {
+  const html = window.marked ? window.marked.parse(texto || "") : escapeHtml(texto);
+  return `
+    <div class="console-card" style="margin-bottom: 12px;">
+      ${html}
+    </div>
+  `;
 }
 
 function informeHtml(informe) {

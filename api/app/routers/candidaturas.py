@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.db.models import Analisis, Candidatura
 from app.db.models.enums import EstadoAnalisis
 from app.db.session import get_session
+from app.services.qdrant_client import listar_plan_trabajo
 
 router = APIRouter(prefix="/api/v1", tags=["candidaturas"])
 
@@ -77,6 +78,7 @@ class InformePublicado(BaseModel):
 
 class CandidaturaDetalle(CandidaturaResumen):
     informes_publicados: list[InformePublicado]
+    propuestas: list[str]
 
 
 @router.get("/candidaturas/{candidatura_id}", response_model=CandidaturaDetalle)
@@ -98,9 +100,16 @@ def obtener_candidatura(candidatura_id: int, session: Session = Depends(get_sess
         .all()
     )
 
+    propuestas = [
+        punto.payload["texto"]
+        for punto in listar_plan_trabajo(candidatura_id)
+        if punto.payload and punto.payload.get("texto")
+    ]
+
     resumen = _a_resumen(candidatura)
     return CandidaturaDetalle(
         **resumen.model_dump(),
+        propuestas=propuestas,
         informes_publicados=[
             InformePublicado(
                 id=a.id,

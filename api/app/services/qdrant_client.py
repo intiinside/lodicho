@@ -155,6 +155,27 @@ def search_marco_legal(
     return hybrid_search(ALIAS_MARCO_LEGAL, dense_vector, sparse_vector, query_filter, limit)
 
 
+def listar_plan_trabajo(candidatura_id: int, limit: int = 200) -> list[models.Record]:
+    """Trae todos los chunks del plan de trabajo de una candidatura via
+    `scroll` (sin embedding de consulta): para mostrar el plan completo en
+    el perfil publico, no para busqueda semantica. Mismo filtro obligatorio
+    por `candidatura_id` que `search_planes_trabajo` (Regla critica 1)."""
+    puntos, _ = get_client().scroll(
+        collection_name=ALIAS_PLANES_TRABAJO,
+        scroll_filter=models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="candidatura_id", match=models.MatchValue(value=candidatura_id)
+                )
+            ]
+        ),
+        limit=limit,
+        with_payload=True,
+        with_vectors=False,
+    )
+    return puntos
+
+
 def search_contexto(
     dense_vector: list[float],
     sparse_vector: models.SparseVector,
