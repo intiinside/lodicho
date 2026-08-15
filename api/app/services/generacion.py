@@ -18,10 +18,11 @@ from pydantic import BaseModel
 
 from app.config.settings import settings
 
-GENERATION_MODEL_FLASH = "gemini-flash-latest"
+GENERATION_MODEL_FLASH = "gemini-3.1-flash-lite"
 # TODO: la cuota gratuita de la API key actual no incluye gemini-pro-latest
-# (limit: 0). Volver a "gemini-pro-latest" cuando se active facturacion.
-GENERATION_MODEL_PRO = "gemini-flash-latest"
+# (limit: 0) y gemini-flash-latest solo tiene 20 req/dia. Revisar cuando se
+# active facturacion.
+GENERATION_MODEL_PRO = "gemini-3.1-flash-lite"
 
 _client: genai.Client | None = None
 
