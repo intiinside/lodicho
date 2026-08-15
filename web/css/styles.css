@@ -174,23 +174,24 @@ svg {
 }
 
 .sidebar__brand {
-  margin-bottom: 28px;
-  padding: 0 8px;
+  margin-bottom: 32px;
+  padding: 4px 8px;
 }
 
 .sidebar__brand-link {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   text-decoration: none;
   color: var(--color-text-main);
 }
 
 .sidebar__logo {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .sidebar__title-block {
@@ -199,13 +200,13 @@ svg {
 }
 
 .sidebar__title {
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.022em;
 }
 
 .sidebar__tag {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--color-brand);
