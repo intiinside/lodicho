@@ -214,6 +214,12 @@ async function renderCandidaturas(container, api) {
       </div>
       <button type="button" class="btn-primary" id="cand-guardar-btn" style="margin-top:20px;">Guardar Candidatura</button>
     </div>
+
+    <div style="margin-top:24px; display:flex; flex-direction:column; gap:16px;">
+      ${candidaturas.length ? candidaturas.map(candidaturaCardHtml).join("") : `
+        <p style="color:var(--color-text-subtle); text-align:center; padding:24px;">Todavía no hay candidaturas registradas.</p>
+      `}
+    </div>
   `;
 
   const errorEl = container.querySelector("#admin-candidatura-error");
@@ -242,6 +248,66 @@ async function renderCandidaturas(container, api) {
       evento.target.disabled = false;
     }
   });
+
+  container.querySelectorAll("[data-accion='agregar-candidato']").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const candidaturaId = boton.dataset.candidaturaId;
+      const tarjeta = boton.closest("[data-candidatura-card]");
+      const nombreInput = tarjeta.querySelector("[data-campo='cand-nombre']");
+      const posicionInput = tarjeta.querySelector("[data-campo='cand-posicion']");
+      const errorLocalEl = tarjeta.querySelector("[data-candidato-error]");
+
+      const nombre = nombreInput.value.trim();
+      const posicion = Number(posicionInput.value);
+
+      if (!nombre || !posicion || posicion < 1) {
+        errorLocalEl.innerHTML = `<div class="banner banner--warning" style="margin-top:8px;">Nombre y posición en lista son obligatorios.</div>`;
+        return;
+      }
+
+      boton.disabled = true;
+      try {
+        await api.crearCandidato(candidaturaId, { nombre, posicion_lista: posicion });
+        mostrarToast("Candidato agregado correctamente");
+        renderCandidaturas(container, api);
+      } catch (err) {
+        errorLocalEl.innerHTML = `<div class="banner banner--danger" style="margin-top:8px;">${escapeHtml(err.message)}</div>`;
+        boton.disabled = false;
+      }
+    });
+  });
+}
+
+function candidaturaCardHtml(candidatura) {
+  const candidatosHtml = candidatura.candidatos.length
+    ? candidatura.candidatos.map((c) => `
+        <li>${escapeHtml(String(c.posicion_lista))}. ${escapeHtml(c.nombre)}</li>
+      `).join("")
+    : `<li style="color:var(--color-text-subtle);">Sin candidatos registrados.</li>`;
+
+  return `
+    <div class="console-card" data-candidatura-card data-candidatura-id="${escapeHtml(String(candidatura.id))}">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+        <div>
+          <strong>${escapeHtml(candidatura.organizacion_politica)}</strong> — Lista ${escapeHtml(candidatura.lista_numero)}
+          <div style="font-size:13px; color:var(--color-text-subtle);">${escapeHtml(candidatura.dignidad)} · ${escapeHtml(candidatura.jurisdiccion_dpa)} · ${escapeHtml(candidatura.periodo)}</div>
+        </div>
+      </div>
+      <ul style="margin:0 0 12px; padding-left:18px; font-size:14px;">${candidatosHtml}</ul>
+      <div data-candidato-error></div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+        <div style="flex:2; min-width:140px;">
+          <label style="font-size:11px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:4px;">Nombre del candidato</label>
+          <input type="text" class="console-input" data-campo="cand-nombre" placeholder="Nombre completo" />
+        </div>
+        <div style="flex:1; min-width:80px;">
+          <label style="font-size:11px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:4px;">Posición</label>
+          <input type="number" min="1" class="console-input" data-campo="cand-posicion" placeholder="1" />
+        </div>
+        <button type="button" class="btn-secondary" data-accion="agregar-candidato" data-candidatura-id="${escapeHtml(String(candidatura.id))}">Agregar</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderSubir(container, api) {

@@ -29,7 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config.settings import settings
-from app.db.models import Candidatura, Documento
+from app.db.models import Candidato, Candidatura, Documento
 from app.db.models.enums import EstadoPlanCandidatura
 from app.db.session import get_session
 from app.services import admin_auth, corpus_git, corpus_validation, pdf_conversion
@@ -354,6 +354,19 @@ def listar_documentos(session: Session = Depends(get_session)) -> ListaDocumento
     )
 
 
+class CandidatoResumen(BaseModel):
+    id: int
+    nombre: str
+    posicion_lista: int
+    candidatura_id: int
+
+
+def _resumen_candidato(c: Candidato) -> CandidatoResumen:
+    return CandidatoResumen(
+        id=c.id, nombre=c.nombre, posicion_lista=c.posicion_lista, candidatura_id=c.candidatura_id
+    )
+
+
 class CandidaturaResumen(BaseModel):
     id: int
     organizacion_politica: str
@@ -363,6 +376,7 @@ class CandidaturaResumen(BaseModel):
     periodo: str
     estado_plan: str
     doc_id_plan: str | None
+    candidatos: list[CandidatoResumen] = []
 
 
 def _resumen_candidatura(c: Candidatura) -> CandidaturaResumen:
@@ -375,6 +389,7 @@ def _resumen_candidatura(c: Candidatura) -> CandidaturaResumen:
         periodo=c.periodo,
         estado_plan=c.estado_plan.value,
         doc_id_plan=c.doc_id_plan,
+        candidatos=[_resumen_candidato(cand) for cand in sorted(c.candidatos, key=lambda x: x.posicion_lista)],
     )
 
 
@@ -421,3 +436,33 @@ def crear_candidatura(datos: CandidaturaCrear, session: Session = Depends(get_se
     session.commit()
     session.refresh(candidatura)
     return _resumen_candidatura(candidatura)
+
+
+class CandidatoCrear(BaseModel):
+    nombre: str
+    posicion_lista: int
+
+
+@router.post(
+    "/candidaturas/{candidatura_id}/candidatos",
+    response_model=CandidatoResumen,
+    dependencies=[Depends(requiere_admin)],
+)
+def crear_candidato(
+    candidatura_id: int, datos: CandidatoCrear, session: Session = Depends(get_session)
+) -> CandidatoResumen:
+    candidatura = session.get(Candidatura, candidatura_id)
+    if candidatura is None:
+        raise HTTPException(status_code=404, detail="No existe esa candidatura")
+
+    nombre = datos.nombre.strip()
+    if not nombre:
+        raise HTTPException(status_code=422, detail="Falta el nombre del candidato")
+    if datos.posicion_lista < 1:
+        raise HTTPException(status_code=422, detail="posicion_lista debe ser un numero positivo")
+
+    candidato = Candidato(nombre=nombre, posicion_lista=datos.posicion_lista, candidatura_id=candidatura.id)
+    session.add(candidato)
+    session.commit()
+    session.refresh(candidato)
+    return _resumen_candidato(candidato)

@@ -133,3 +133,11 @@ export function crearCandidatura(datos) {
     body: JSON.stringify(datos),
   });
 }
+
+export function crearCandidato(candidaturaId, datos) {
+  return llamar(`/candidaturas/${candidaturaId}/candidatos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(datos),
+  });
+}
