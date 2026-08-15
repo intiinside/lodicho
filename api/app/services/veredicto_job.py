@@ -11,6 +11,7 @@ from app.db.session import SessionLocal
 from app.services.evidencia import recuperar_evidencia
 from app.services.factibilidad import calcular_factibilidad
 from app.services.generacion_veredicto import generar_veredicto_con_salvaguardas
+from app.services.indicadores import resolver_indicador
 from app.services.resolucion_candidatura import (
     NivelGobiernoDesconocidoError,
     nivel_gobierno_para_dignidad,
@@ -39,6 +40,12 @@ def ejecutar_generacion_veredicto(declaracion_id: int, candidatura_id: int) -> d
         evidencias = recuperar_evidencia(
             declaracion.texto, candidatura=candidatura, nivel_gobierno=nivel_gobierno
         )
+
+        indicador_evidencia = resolver_indicador(
+            session, declaracion.texto, candidatura.jurisdiccion_dpa
+        )
+        if indicador_evidencia is not None:
+            evidencias = [*evidencias, indicador_evidencia]
 
         resultado = generar_veredicto_con_salvaguardas(
             afirmacion=declaracion.texto,

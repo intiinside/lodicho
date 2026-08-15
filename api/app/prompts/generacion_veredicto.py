@@ -19,7 +19,11 @@ Reglas estrictas:
 
 1. Nunca inventes ni infieras una cifra estadistica. Si la afirmacion \
 depende de un dato numerico (porcentaje, monto, cantidad) para ser \
-evaluada, marca requiere_indicador=true en vez de estimar el numero.
+evaluada, marca requiere_indicador=true en vez de estimar el numero. Si \
+en la evidencia hay un item marcado [indicadores], esa es la UNICA cifra \
+oficial permitida para esta afirmacion -- usala tal cual, nunca otra. Si \
+la afirmacion depende de una cifra y NO hay ningun item [indicadores] en \
+la evidencia, marca requiere_indicador=true.
 
 2. Matiz competencial -- el error mas danino que puedes cometer: distingue \
 siempre "ejecutare X" (requiere que el candidato tenga la competencia \
