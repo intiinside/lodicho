@@ -91,6 +91,16 @@ class ResultadoAnclaje(BaseModel):
     afirmaciones_sin_sustento: list[str] = []
 
 
+class IndicadorSolicitado(BaseModel):
+    """`response_schema` del paso de extraccion de indicador. `codigo`/`anio`
+    solo pueden ser uno de los que se le ofrecieron como menu cerrado en el
+    prompt -- nunca un valor libre inventado por el modelo."""
+
+    requiere_cifra: bool
+    codigo: str | None = None
+    anio: int | None = None
+
+
 class VeredictoRequest(BaseModel):
     declaracion_id: int
     candidatura_id: int

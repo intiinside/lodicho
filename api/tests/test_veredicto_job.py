@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.db.base import Base
-from app.db.models import Candidato, Candidatura, Consulta, Declaracion, Evidencia
+from app.db.models import Candidato, Candidatura, Consulta, Declaracion, Evidencia, Indicador
 from app.db.models.enums import (
     EstadoAnalisis,
     EstadoPlanCandidatura,
@@ -45,6 +45,7 @@ def _compile_jsonb_como_json_en_sqlite(type_, compiler, **kw):
 TABLAS = [
     Candidatura.__table__, Candidato.__table__, Consulta.__table__,
     Declaracion.__table__, veredicto_job.Analisis.__table__, Evidencia.__table__,
+    Indicador.__table__,
 ]
 
 
@@ -134,6 +135,43 @@ def test_ejecutar_generacion_veredicto_persiste_analisis_evidencia_y_linkea_decl
 
     db_session.refresh(declaracion)
     assert declaracion.analisis_id == analisis.id
+
+
+def test_indicador_resuelto_se_agrega_a_la_evidencia(monkeypatch, db_session):
+    candidatura, declaracion = _sembrar(db_session)
+    db_session.add(Indicador(
+        codigo="desempleo", descripcion="Tasa de desempleo", jurisdiccion_dpa="0201",
+        anio=2025, valor="5.2000", unidad="%", fuente="INEC", url=None,
+    ))
+    db_session.commit()
+
+    monkeypatch.setattr(veredicto_job, "recuperar_evidencia", lambda *a, **k: [])
+
+    evidencias_recibidas = {}
+
+    def _fake_generar(*, afirmacion, evidencias, candidatura, nivel_gobierno):
+        evidencias_recibidas["valor"] = evidencias
+        return _resultado_veredicto()
+
+    monkeypatch.setattr(veredicto_job, "generar_veredicto_con_salvaguardas", _fake_generar)
+    monkeypatch.setattr(
+        veredicto_job,
+        "resolver_indicador",
+        lambda session, afirmacion, jurisdiccion_dpa: EvidenciaItem(
+            paso=PasoEvidencia.indicadores, texto="Tasa de desempleo: 5.2000 % (2025, fuente: INEC)",
+            score=1.0, doc_id="indicador:desempleo:0201:2025", git_sha="", point_id="1",
+        ),
+    )
+
+    resultado = veredicto_job.ejecutar_generacion_veredicto(declaracion.id, candidatura.id)
+
+    pasos = {item.paso for item in evidencias_recibidas["valor"]}
+    assert PasoEvidencia.indicadores in pasos
+    evidencia_fila = db_session.execute(
+        select(Evidencia).where(Evidencia.paso == PasoEvidencia.indicadores)
+    ).scalar_one()
+    assert evidencia_fila.git_sha == ""
+    assert len(resultado["evidencias"]) == 1
 
 
 def test_declaracion_inexistente_lanza_error(monkeypatch, db_session):
