@@ -76,6 +76,13 @@ export async function login(password) {
   return cuerpo;
 }
 
+export function convertir(tipo, archivoPdf) {
+  const formData = new FormData();
+  formData.set("tipo", tipo);
+  formData.set("pdf", archivoPdf);
+  return llamar("/documentos/convertir", { method: "POST", body: formData });
+}
+
 export function importarMarkdown(tipo, archivoMd) {
   const formData = new FormData();
   formData.set("tipo", tipo);
