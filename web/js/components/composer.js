@@ -5,9 +5,9 @@ const URL_RE = /^https?:\/\/\S+$/i;
 const LIMITE_AUDIO_BYTES = 10 * 1024 * 1024;
 
 const SUGGESTIONS = [
-  "Construir hospital de especialidades en Simiátug",
-  "Pavimentación de vías parroquiales en Bolívar",
-  "Creación de subsidio agrícola cantonal"
+  "Castillo propone eliminar la tasa de mantenimiento vial",
+  "Guerra propone invertir $50 millones en Misión Violeta",
+  "Zambrano propone destinar el 20% del presupuesto a parroquias rurales"
 ];
 
 export function crearComposer({ onEnviar }) {
