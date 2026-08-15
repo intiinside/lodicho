@@ -1,7 +1,7 @@
 import { ICONS, mostrarToast } from "../icons.js";
 import { escapeHtml } from "../util.js";
 
-const ETIQUETA_PASO = {
+export const ETIQUETA_PASO = {
   planes_trabajo: "Plan de Trabajo Inscrito",
   marco_legal: "Competencia Legal (COOTAD)",
   indicadores: "Indicador Oficial (INEC / BCE)",
@@ -63,6 +63,7 @@ function itemHtml(ev) {
       <div class="evidence-chunk__meta">
         ${score ? `<span>Score RRF: ${escapeHtml(score)}</span>` : ""}
         <span>Doc: ${escapeHtml(ev.doc_id || "N/A")}</span>
+        ${ev.fuente_url ? `<a href="${escapeHtml(ev.fuente_url)}" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="padding:2px 8px; font-size:11px; text-decoration:none; display:inline-block;">Ver fuente ↗</a>` : ""}
         ${ev.git_sha ? `<button type="button" class="btn-secondary" style="padding:2px 8px; font-size:11px;" data-copy-sha="${escapeHtml(ev.git_sha)}">Git: ${escapeHtml(ev.git_sha.slice(0, 8))}</button>` : ""}
       </div>
     </div>

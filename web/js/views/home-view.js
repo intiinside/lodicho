@@ -10,6 +10,7 @@ import {
 } from "../state.js";
 import { escapeHtml, formatearFecha } from "../util.js";
 import { VEREDICTO_LABELS } from "../components/veredicto-badge.js";
+import { ETIQUETA_PASO } from "../components/evidencia-sheet.js";
 import { ICONS } from "../icons.js";
 
 export async function render(container) {
@@ -208,10 +209,30 @@ function mostrarFallbackDPA(estadoEl, onElegir) {
 function construirResumenMarkdown(data, payload) {
   const partes = [];
   if (data.declaracion?.texto || payload.texto) {
-    partes.push(`> ${escapeHtml(data.declaracion?.texto || payload.texto)}`);
+    partes.push(`**Declaración analizada:**\n\n> ${escapeHtml(data.declaracion?.texto || payload.texto)}`);
   }
   for (const ev of data.evidencias || []) {
-    partes.push(escapeHtml(ev.texto));
+    partes.push(evidenciaComoCitaMarkdown(ev));
   }
-  return partes.join("\n\n") || "_Sin evidencia recuperada._";
+  return partes.join("\n\n---\n\n") || "_Sin evidencia recuperada._";
+}
+
+// El texto de un chunk trae el markdown TAL CUAL vive en el documento fuente
+// (incluye sus propios "# Encabezado" — CLAUDE.md: por eje en planes_trabajo,
+// por articulo en marco_legal). Pasarlo directo a marked.parse() hace que esos
+// encabezados se rendericen como titulos de pagina dentro de la tarjeta, mas
+// grandes que el resto de la UI. Se degradan a texto de cita en vez de dejar
+// que el markdown de un tercero controle la jerarquia visual de la tarjeta.
+function evidenciaComoCitaMarkdown(ev) {
+  const etiqueta = ETIQUETA_PASO[ev.paso] || "Evidencia";
+  const cita = escapeHtml(ev.texto)
+    .replace(/^#+\s*/gm, "")
+    .trim()
+    .split("\n")
+    .map((linea) => `> ${linea}`)
+    .join("\n");
+  const fuente = ev.fuente_url
+    ? ` — [Ver fuente ↗](${escapeHtml(ev.fuente_url)})`
+    : "";
+  return `**${escapeHtml(etiqueta)}**${fuente}\n\n${cita}`;
 }
