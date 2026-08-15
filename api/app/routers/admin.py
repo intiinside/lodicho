@@ -1,0 +1,314 @@
+"""Panel de admin: subir un PDF, convertirlo a Markdown (Docling),
+revisar/editar, commitear a lodicho-corpus, e ingestar a Qdrant — todo
+desde el front, sin que el revisor toque una terminal ni git.
+
+Auth con una sola clave compartida (services/admin_auth.py) — no hay
+tabla de usuarios todavia (ver README/decisiones del panel de admin).
+
+El estado de los borradores vive en memoria de proceso: se pierde si el
+contenedor reinicia, y no funciona corriendo mas de un worker de
+uvicorn. Aceptable para el volumen de este piloto; si hace falta mas
+adelante, pasa a una tabla en Postgres.
+"""
+from __future__ import annotations
+
+import shutil
+import tempfile
+import uuid
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+import yaml
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile, status
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.config.settings import settings
+from app.db.models import Documento
+from app.db.session import get_session
+from app.services import admin_auth, corpus_git, corpus_validation, pdf_conversion
+from app.services.ingest import DIR_POR_TIPO, IngestaError, ingestar_archivo
+
+router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+
+# ---------- auth ----------
+
+
+class LoginRequest(BaseModel):
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+
+
+@router.post("/login", response_model=LoginResponse)
+def login(datos: LoginRequest) -> LoginResponse:
+    if not admin_auth.verificar_password(datos.password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Contraseña incorrecta")
+    return LoginResponse(token=admin_auth.crear_sesion())
+
+
+def requiere_admin(authorization: str | None = Header(default=None)) -> None:
+    token = None
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[len("Bearer ") :]
+    if not admin_auth.verificar_sesion(token):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sesión inválida o expirada")
+
+
+# ---------- borradores (en memoria de proceso) ----------
+
+
+@dataclass
+class Borrador:
+    markdown: str
+    meta: dict[str, Any]
+    pdf_temp_path: Path | None = None
+    pdf_sha256: str | None = None
+    texto_pdf: str = ""
+
+
+_borradores: dict[str, Borrador] = {}
+_TMP_DIR = Path(tempfile.gettempdir()) / "lodicho-borradores"
+_TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _obtener_borrador(borrador_id: str) -> Borrador:
+    borrador = _borradores.get(borrador_id)
+    if borrador is None:
+        raise HTTPException(status_code=404, detail="Borrador no encontrado (¿expiró o ya se confirmó?)")
+    return borrador
+
+
+def _extraer_texto_plano(pdf_path: Path) -> str:
+    try:
+        from pypdf import PdfReader
+
+        return "".join(pagina.extract_text() or "" for pagina in PdfReader(str(pdf_path)).pages)
+    except Exception:
+        return ""
+
+
+def _meta_con_campos_automaticos(b: Borrador) -> dict[str, Any]:
+    """Campos que nunca se confian al cliente: son la garantia de que
+    pdf_sha256 y la fecha de revision reflejan lo que paso de verdad, no
+    lo que alguien haya podido mandar en el request. Un solo lugar para
+    calcularlos, para que /validar (vista previa) y /confirmar (real)
+    nunca puedan desincronizarse sobre que cuenta como valido."""
+    return {
+        **b.meta,
+        "pdf_sha256": b.pdf_sha256,
+        "convertido_con": "docling",
+        "revisado_en": date.today().isoformat(),
+    }
+
+
+class ConvertirResponse(BaseModel):
+    borrador_id: str
+    markdown: str
+    pdf_sha256: str | None
+    tipo: str
+
+
+@router.post("/documentos/convertir", response_model=ConvertirResponse, dependencies=[Depends(requiere_admin)])
+async def convertir(tipo: str = Form(...), pdf: UploadFile = File(...)) -> ConvertirResponse:
+    if tipo not in DIR_POR_TIPO:
+        raise HTTPException(status_code=422, detail=f"tipo debe ser uno de {list(DIR_POR_TIPO)}")
+
+    borrador_id = str(uuid.uuid4())
+    pdf_path = _TMP_DIR / f"{borrador_id}.pdf"
+    with pdf_path.open("wb") as destino:
+        shutil.copyfileobj(pdf.file, destino)
+
+    pdf_sha256 = pdf_conversion.calcular_sha256(pdf_path)
+
+    try:
+        markdown = pdf_conversion.convertir_pdf_a_markdown(pdf_path)
+    except Exception as exc:
+        pdf_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=422, detail=f"No se pudo convertir el PDF: {exc}") from exc
+
+    _borradores[borrador_id] = Borrador(
+        markdown=markdown,
+        meta={"tipo": tipo, "vigente": True},
+        pdf_temp_path=pdf_path,
+        pdf_sha256=pdf_sha256,
+        texto_pdf=_extraer_texto_plano(pdf_path),
+    )
+
+    return ConvertirResponse(borrador_id=borrador_id, markdown=markdown, pdf_sha256=pdf_sha256, tipo=tipo)
+
+
+class BorradorResponse(BaseModel):
+    markdown: str
+    meta: dict[str, Any]
+
+
+@router.get(
+    "/documentos/borradores/{borrador_id}", response_model=BorradorResponse, dependencies=[Depends(requiere_admin)]
+)
+def obtener_borrador(borrador_id: str) -> BorradorResponse:
+    b = _obtener_borrador(borrador_id)
+    return BorradorResponse(markdown=b.markdown, meta=b.meta)
+
+
+class ActualizarBorradorRequest(BaseModel):
+    markdown: str
+    meta: dict[str, Any]
+
+
+@router.put(
+    "/documentos/borradores/{borrador_id}", response_model=BorradorResponse, dependencies=[Depends(requiere_admin)]
+)
+def actualizar_borrador(borrador_id: str, datos: ActualizarBorradorRequest) -> BorradorResponse:
+    b = _obtener_borrador(borrador_id)
+    b.markdown = datos.markdown
+    b.meta = {**b.meta, **datos.meta}
+    return BorradorResponse(markdown=b.markdown, meta=b.meta)
+
+
+@router.delete("/documentos/borradores/{borrador_id}", dependencies=[Depends(requiere_admin)])
+def descartar_borrador(borrador_id: str) -> dict[str, bool]:
+    b = _borradores.pop(borrador_id, None)
+    if b and b.pdf_temp_path:
+        b.pdf_temp_path.unlink(missing_ok=True)
+    return {"ok": True}
+
+
+class ValidarResponse(BaseModel):
+    ok: bool
+    errores: list[str]
+    warnings: list[str]
+
+
+@router.post(
+    "/documentos/borradores/{borrador_id}/validar",
+    response_model=ValidarResponse,
+    dependencies=[Depends(requiere_admin)],
+)
+def validar_borrador(borrador_id: str) -> ValidarResponse:
+    b = _obtener_borrador(borrador_id)
+    resultado = corpus_validation.validar(_meta_con_campos_automaticos(b), b.markdown, b.texto_pdf)
+    return ValidarResponse(ok=resultado.ok, errores=resultado.errores, warnings=resultado.warnings)
+
+
+class ConfirmarResponse(BaseModel):
+    doc_id: str
+    git_sha: str
+    ruta_md: str
+
+
+@router.post(
+    "/documentos/borradores/{borrador_id}/confirmar",
+    response_model=ConfirmarResponse,
+    dependencies=[Depends(requiere_admin)],
+)
+def confirmar_borrador(borrador_id: str) -> ConfirmarResponse:
+    b = _obtener_borrador(borrador_id)
+    meta = _meta_con_campos_automaticos(b)
+
+    resultado = corpus_validation.validar(meta, b.markdown, b.texto_pdf)
+    if not resultado.ok:
+        raise HTTPException(status_code=422, detail={"errores": resultado.errores, "warnings": resultado.warnings})
+
+    doc_id = meta["doc_id"]
+    tipo = meta["tipo"]
+    corpus_path = Path(settings.corpus_path)
+    carpeta = DIR_POR_TIPO[tipo]
+
+    ruta_md = corpus_path / carpeta / f"{doc_id}.md"
+    ruta_md.parent.mkdir(parents=True, exist_ok=True)
+
+    frontmatter = yaml.safe_dump(meta, allow_unicode=True, sort_keys=False)
+    ruta_md.write_text(f"---\n{frontmatter}---\n\n{b.markdown.strip()}\n", encoding="utf-8")
+
+    rutas_relativas = [str(ruta_md.relative_to(corpus_path))]
+
+    if b.pdf_temp_path and b.pdf_temp_path.exists():
+        ruta_pdf = corpus_path / "pdfs" / carpeta / f"{doc_id}.pdf"
+        ruta_pdf.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(b.pdf_temp_path, ruta_pdf)
+        rutas_relativas.append(str(ruta_pdf.relative_to(corpus_path)))
+
+    try:
+        git_sha = corpus_git.commitear_y_pushear(corpus_path, rutas_relativas, f"Agrega {doc_id} (panel de admin)")
+    except corpus_git.GitCorpusError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    if b.pdf_temp_path:
+        b.pdf_temp_path.unlink(missing_ok=True)
+    _borradores.pop(borrador_id, None)
+
+    return ConfirmarResponse(doc_id=doc_id, git_sha=git_sha, ruta_md=rutas_relativas[0])
+
+
+class IngestarResponse(BaseModel):
+    doc_id: str
+    tipo: str
+    git_sha: str
+    n_chunks: int
+
+
+@router.post(
+    "/documentos/{doc_id}/ingestar", response_model=IngestarResponse, dependencies=[Depends(requiere_admin)]
+)
+def ingestar_documento(doc_id: str, session: Session = Depends(get_session)) -> IngestarResponse:
+    corpus_path = Path(settings.corpus_path)
+    archivo = None
+    for carpeta in DIR_POR_TIPO.values():
+        candidato = corpus_path / carpeta / f"{doc_id}.md"
+        if candidato.exists():
+            archivo = candidato
+            break
+
+    if archivo is None:
+        raise HTTPException(status_code=404, detail=f"No se encontró {doc_id}.md en el corpus")
+
+    try:
+        resumen = ingestar_archivo(archivo, corpus_path, session)
+    except IngestaError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return IngestarResponse(
+        doc_id=resumen.doc_id, tipo=resumen.tipo, git_sha=resumen.git_sha, n_chunks=resumen.n_chunks
+    )
+
+
+class DocumentoResumen(BaseModel):
+    doc_id: str
+    tipo: str
+    candidatura_id: int | None
+    n_chunks: int
+    indexado_en: str | None
+    estado: str
+    git_sha: str
+    ruta_repo: str
+
+
+class ListaDocumentosResponse(BaseModel):
+    documentos: list[DocumentoResumen]
+
+
+@router.get("/documentos", response_model=ListaDocumentosResponse, dependencies=[Depends(requiere_admin)])
+def listar_documentos(session: Session = Depends(get_session)) -> ListaDocumentosResponse:
+    filas = session.execute(select(Documento).order_by(Documento.id.desc())).scalars().all()
+    return ListaDocumentosResponse(
+        documentos=[
+            DocumentoResumen(
+                doc_id=d.doc_id,
+                tipo=d.tipo.value,
+                candidatura_id=d.candidatura_id,
+                n_chunks=d.n_chunks,
+                indexado_en=d.indexado_en.isoformat() if d.indexado_en else None,
+                estado=d.estado.value,
+                git_sha=d.git_sha,
+                ruta_repo=d.ruta_repo,
+            )
+            for d in filas
+        ]
+    )

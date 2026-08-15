@@ -29,6 +29,11 @@ htmlcov/
 # --- Certificados TLS (Let's Encrypt): claves privadas, nunca al repo ---
 /certbot/
 
+# --- Deploy key SSH del panel de admin: clave privada, nunca al repo ---
+/secrets/*
+!/secrets/.gitkeep
+!/secrets/README.md
+
 # --- Editores / SO ---
 .vscode/
 .idea/

@@ -1,0 +1,126 @@
+// Cliente del panel de admin. Separado de api.js a proposito: se carga
+// via import() dinamico solo cuando alguien navega a #/admin, para no
+// mandarle este codigo a cada visitante publico de la app.
+import { ErrorAPI } from "./api.js";
+
+const PRODUCTION_ORIGIN = "https://lodicho.intiinside.com";
+const ES_LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
+const BASE_URL = `${ES_LOCAL ? PRODUCTION_ORIGIN : ""}/api/v1/admin`;
+
+const TOKEN_KEY = "lodicho:admin_token";
+
+export function obtenerToken() {
+  return sessionStorage.getItem(TOKEN_KEY);
+}
+
+export function guardarToken(token) {
+  sessionStorage.setItem(TOKEN_KEY, token);
+}
+
+export function cerrarSesion() {
+  sessionStorage.removeItem(TOKEN_KEY);
+}
+
+async function llamar(path, opciones = {}) {
+  const token = obtenerToken();
+  const headers = { ...(opciones.headers || {}) };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...opciones, headers });
+  } catch (causa) {
+    throw new ErrorAPI("No se pudo conectar con el servidor.", causa);
+  }
+
+  if (res.status === 401) {
+    cerrarSesion();
+    throw new ErrorAPI("Sesión inválida o expirada — volvé a entrar.");
+  }
+
+  let cuerpo = null;
+  try {
+    cuerpo = await res.json();
+  } catch {
+    /* respuesta sin cuerpo JSON, ej. un 204 */
+  }
+
+  if (!res.ok) {
+    const error = new ErrorAPI(
+      typeof cuerpo?.detail === "string" ? cuerpo.detail : `El servidor respondió ${res.status}.`
+    );
+    error.detalle = cuerpo?.detail;
+    throw error;
+  }
+
+  return cuerpo;
+}
+
+export async function login(password) {
+  // No pasa por llamar(): ese helper trata cualquier 401 como "sesion
+  // expirada" y limpia el token — pero un 401 aca es "contraseña
+  // incorrecta", un caso distinto que no debe pisar ese mensaje.
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+  } catch (causa) {
+    throw new ErrorAPI("No se pudo conectar con el servidor.", causa);
+  }
+
+  let cuerpo = null;
+  try {
+    cuerpo = await res.json();
+  } catch {
+    /* noop */
+  }
+
+  if (!res.ok) {
+    throw new ErrorAPI(typeof cuerpo?.detail === "string" ? cuerpo.detail : `El servidor respondió ${res.status}.`);
+  }
+
+  guardarToken(cuerpo.token);
+  return cuerpo;
+}
+
+export function convertir(tipo, archivoPdf) {
+  const formData = new FormData();
+  formData.set("tipo", tipo);
+  formData.set("pdf", archivoPdf);
+  return llamar("/documentos/convertir", { method: "POST", body: formData });
+}
+
+export function obtenerBorrador(id) {
+  return llamar(`/documentos/borradores/${id}`);
+}
+
+export function actualizarBorrador(id, markdown, meta) {
+  return llamar(`/documentos/borradores/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ markdown, meta }),
+  });
+}
+
+export function validarBorrador(id) {
+  return llamar(`/documentos/borradores/${id}/validar`, { method: "POST" });
+}
+
+export function confirmarBorrador(id) {
+  return llamar(`/documentos/borradores/${id}/confirmar`, { method: "POST" });
+}
+
+export function descartarBorrador(id) {
+  return llamar(`/documentos/borradores/${id}`, { method: "DELETE" });
+}
+
+export function ingestarDocumento(docId) {
+  return llamar(`/documentos/${encodeURIComponent(docId)}/ingestar`, { method: "POST" });
+}
+
+export function listarDocumentos() {
+  return llamar("/documentos");
+}

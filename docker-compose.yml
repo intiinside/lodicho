@@ -35,11 +35,16 @@ services:
       - .env
     volumes:
       # lodicho-corpus como hermano de este repo (repo separado a
-      # proposito, ver CLAUDE.md). Solo lectura: la ingesta nunca escribe
-      # en el corpus. Si no existe todavia en esta maquina, Docker crea un
-      # directorio vacio y scripts/ingest_corpus.py simplemente no
-      # encuentra nada para ingestar.
-      - ../lodicho-corpus:/corpus:ro
+      # proposito, ver CLAUDE.md). Lectura-escritura: el panel de admin
+      # escribe el .md/PDF nuevo aca antes de commitear. Si no existe
+      # todavia en esta maquina, Docker crea un directorio vacio y
+      # scripts/ingest_corpus.py simplemente no encuentra nada para
+      # ingestar.
+      - ../lodicho-corpus:/corpus
+      # Deploy key SSH dedicada (solo escritura en lodicho-corpus) para
+      # que el panel de admin pueda commitear + pushear sin que nadie
+      # toque una terminal. Nunca la corriente/personal de nadie.
+      - ./secrets/corpus_deploy_key:/run/secrets/corpus_deploy_key:ro
     depends_on:
       - postgres
       - redis

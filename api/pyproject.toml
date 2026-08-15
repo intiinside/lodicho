@@ -19,6 +19,8 @@ dependencies = [
     "httpx>=0.27",
     "python-multipart>=0.0.12",
     "pyyaml>=6.0",
+    "docling>=2.14",
+    "pypdf>=4.0",
 ]
 
 [project.optional-dependencies]

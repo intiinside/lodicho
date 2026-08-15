@@ -17,6 +17,9 @@ function resolverRuta(ruta) {
   if (ruta === "" || ruta === "#" || ruta === "#/") return { vista: homeView, params: {} };
   if (ruta === "#/historial") return { vista: historialView, params: {} };
   if (ruta === "#/acerca") return { vista: acercaView, params: {} };
+  // Herramienta interna, no de cara al ciudadano: se carga solo si
+  // alguien navega ahi a proposito, nunca en el bundle publico.
+  if (ruta === "#/admin") return { cargarVista: () => import("./views/admin-view.js"), params: {} };
 
   const matchConsulta = ruta.match(/^#\/consulta\/(.+)$/);
   if (matchConsulta) {
@@ -28,10 +31,11 @@ function resolverRuta(ruta) {
 
 async function navegar() {
   const ruta = location.hash || "#/";
-  const { vista, params } = resolverRuta(ruta);
+  const resuelta = resolverRuta(ruta);
+  const vista = resuelta.vista || (await resuelta.cargarVista());
   montarBottomNav(navEl, ruta);
   mainEl.scrollTop = 0;
-  await vista.render(mainEl, params);
+  await vista.render(mainEl, resuelta.params);
 }
 
 function registrarServiceWorker() {
