@@ -33,7 +33,14 @@ from app.db.models import Candidato, Candidatura, Documento
 from app.db.models.enums import EstadoPlanCandidatura
 from app.db.session import get_session
 from app.services import admin_auth, corpus_git, corpus_validation, pdf_conversion
-from app.services.ingest import DIR_POR_TIPO, IngestaError, ingestar_archivo
+from app.services.ingest import (
+    ALIAS_POR_TIPO,
+    DIR_POR_TIPO,
+    IngestaError,
+    ingestar_archivo,
+    parsear_frontmatter,
+)
+from app.services.qdrant_client import delete_by_doc_id
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -75,6 +82,11 @@ class Borrador:
     pdf_sha256: str | None = None
     texto_pdf: str | None = ""
     origen: str = "docling"
+    # Solo se llenan al editar un documento YA ingestado (ver /documentos/{doc_id}/editar).
+    # Si tipo o doc_id cambian respecto a estos valores, confirmar_borrador sabe que
+    # tiene que borrar el archivo y los puntos de Qdrant viejos, no solo escribir los nuevos.
+    doc_id_original: str | None = None
+    tipo_original: str | None = None
 
 
 _borradores: dict[str, Borrador] = {}
