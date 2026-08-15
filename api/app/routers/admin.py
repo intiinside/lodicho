@@ -196,6 +196,54 @@ async def importar_markdown(tipo: str = Form(...), markdown_file: UploadFile = F
 
     return ConvertirResponse(borrador_id=borrador_id, markdown=markdown, pdf_sha256=checksum, tipo=tipo)
 
+class EditarDocumentoResponse(BaseModel):
+    borrador_id: str
+    markdown: str
+    tipo: str
+    meta: dict[str, Any]
+
+
+@router.post(
+    "/documentos/{doc_id}/editar", response_model=EditarDocumentoResponse, dependencies=[Depends(requiere_admin)]
+)
+def editar_documento(doc_id: str) -> EditarDocumentoResponse:
+    """Abre un documento YA commiteado al corpus como borrador editable —
+    mismo formulario que un documento nuevo, pre-llenado. Existe porque el
+    tipo (marco_legal / plan_trabajo / contexto) se elige una sola vez al
+    subir y, si alguien se equivoca ahi, hasta ahora no habia forma de
+    corregirlo sin tocar git a mano."""
+    corpus_path = Path(settings.corpus_path)
+    archivo = None
+    tipo_actual = None
+    for tipo, carpeta in DIR_POR_TIPO.items():
+        candidato = corpus_path / carpeta / f"{doc_id}.md"
+        if candidato.exists():
+            archivo, tipo_actual = candidato, tipo
+            break
+
+    if archivo is None:
+        raise HTTPException(status_code=404, detail=f"No se encontró {doc_id}.md en el corpus")
+
+    try:
+        meta, body = parsear_frontmatter(archivo.read_text(encoding="utf-8"))
+    except IngestaError as exc:
+        raise HTTPException(status_code=422, detail=f"No se pudo leer el documento existente: {exc}") from exc
+
+    borrador_id = str(uuid.uuid4())
+    _borradores[borrador_id] = Borrador(
+        markdown=body.strip(),
+        meta=meta,
+        pdf_temp_path=None,  # el PDF ya vive en el corpus; editar texto/tipo no lo toca
+        pdf_sha256=meta.get("pdf_sha256"),
+        texto_pdf=None,  # ya paso la validacion de ratio md/pdf cuando se ingesto la primera vez
+        origen=meta.get("convertido_con", "editado"),
+        doc_id_original=doc_id,
+        tipo_original=tipo_actual,
+    )
+
+    return EditarDocumentoResponse(borrador_id=borrador_id, markdown=body.strip(), tipo=tipo_actual, meta=meta)
+
+
 class BorradorResponse(BaseModel):
     markdown: str
     meta: dict[str, Any]
