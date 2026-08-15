@@ -441,8 +441,10 @@ sin build step. Estructura `web/js/{api.js, admin-api.js, views/, components/}`.
 
 **Instalado y funcionando:** shell de la app (header, nav inferior, tema
 claro/oscuro), vistas Inicio / Historial / Acerca de, y el panel de admin (`#/admin`,
-ver sección propia). Lo que **no** funciona todavía: `/api/v1/consulta` no existe del
-lado del backend, así que enviar una consulta real falla limpio con un mensaje claro.
+ver sección propia). Enviar una consulta de **texto** ya funciona de punta a punta
+contra `/api/v1/consulta`. Lo que **no** funciona todavía: el composer ya graba/adjunta
+audio y acepta URL, pero el backend rechaza ambos sin procesarlos (ver "Estado
+actual"), y no hay pantalla de revisión/publicación de veredictos.
 
 **Composer único** (no tabs separados para texto/voz/URL): una sola caja de texto que
 crece, con botones para dictar, subir audio pregrabado, y pegar URL desde el
@@ -486,45 +488,92 @@ HTTPS) apuntando al backend de producción.
 
 ## Estado actual
 
-**Fase 1 — Corpus e ingesta.** Infraestructura y herramientas listas; contenido real
-todavía en cero. Actualizado al último despliegue — si esto queda desactualizado,
+**Fase 2 — Pipeline de consulta y veredicto, sin contenido real todavía.**
+Infraestructura, ingesta y el pipeline de consulta/veredicto (Entregas 1 y 2, ver
+`routers/consulta.py` y `routers/veredicto.py`) ya tienen código e implementan los
+pasos centrales de CLAUDE.md; lo que falta es sobre todo entradas no-texto,
+cache/indicadores (Entrega 3) y el corpus real. Este párrafo se desactualiza rápido —
 confiar en el código y en `docker compose ps` antes que en este párrafo.
 
 **Funciona hoy:**
-- Infra completa en el VPS: nginx + Certbot (HTTPS real en lodicho.intiinside.com),
-  `api`, `worker`, `postgres`, `redis`, `qdrant`, todo en Docker Compose.
+- Infra completa en el VPS: nginx + Certbot, `api`, `worker`, `postgres`, `redis`,
+  `qdrant`, todo en Docker Compose.
 - Esquema de base de datos completo, migración inicial aplicada.
-- Las 4 colecciones de Qdrant creadas con sus alias — **vacías**.
+- Las 4 colecciones de Qdrant creadas con sus alias — **vacías** (sin contenido real).
 - `lodicho-corpus` vivo en GitHub (privado), con el validador de frontmatter y la
   GitHub Action corriendo en cada PR.
 - Panel de admin (`#/admin`): login, subir PDF, convertir con Docling, revisar,
-  commit + push automático al corpus, ingestar a Qdrant. Recién desplegado — todavía
-  sin un caso real de punta a punta confirmado en producción (ver gotchas operativas
-  en la sección "Panel de admin").
+  commit + push automático al corpus, ingestar a Qdrant, **y alta de candidaturas**
+  (`POST /api/v1/admin/candidaturas`, pantalla "Registrar Nueva Candidatura" — ya no
+  hace falta SQL a mano). Sección "Documentos" lista lo ingestado. Sin un caso real de
+  punta a punta confirmado en producción todavía (ver gotchas operativas).
 - `app/services/ingest.py` (chunk → embeddings → Qdrant → Postgres), compartido entre
-  `make ingest` y el panel — probado con integración, no en producción con contenido
-  real todavía.
-- Frontend: shell instalable, vistas Inicio / Historial / Acerca de, composer único.
+  `make ingest` y el panel — probado con integración, sin contenido real en producción.
+- `GET /api/v1/estado` (bandera de silencio electoral) — implementado.
+- `POST /api/v1/consulta` (SSE) — **implementado, pero solo entrada de texto.**
+  Clasifica intención (rechazo fijo para recomendación de voto / opinión / comparación
+  de calidad), resuelve candidatura (extracción de nombre vía Gemini + búsqueda +
+  desambiguación, con fallback por dignidad), recupera evidencia dirigida
+  (`planes_trabajo` filtrado por `candidatura_id`, `marco_legal` filtrado por
+  `nivel_gobierno`), persiste `Consulta`/`Declaracion`, y devuelve el evento
+  `evidencia` de inmediato. Rechaza explícitamente `voz` y `url` con
+  "Esta version solo admite entrada de texto", y `comparacion_factual` con "no
+  disponible todavía" — el frontend (composer con dictado/adjuntar audio/URL) ya está
+  armado esperando que el backend soporte esto.
+- `POST /api/v1/veredicto` (SSE) — **implementado.** Encola `generar_veredicto` en ARQ;
+  el worker corre las tres salvaguardas: auto-consistencia (3 corridas a temperatura
+  0.3), los dos validadores semánticos expresables en código
+  (`sin_plan_no_es_ausencia`, `competencia_exige_articulos`), y el verificador de
+  anclaje (segunda llamada a Flash). Calcula factibilidad con pesos fijos en Python
+  (`services/factibilidad.py`). `estado` sale en `borrador` o `en_revision` según si
+  alguna salvaguarda disparó; nunca en `publicado` (ver más abajo).
+- `app/worker.py` con el job real `generar_veredicto` registrado (ya no solo `ping`
+  de placeholder).
+- Suite de tests cubriendo intención, resolución de candidatura, evidencia,
+  factibilidad, generación de veredicto, validadores, verificador de anclaje, y los
+  routers de consulta/veredicto (`api/tests/`).
+- Frontend: shell instalable, vistas Inicio / Historial / Acerca de, composer único,
+  panel de admin. Enviar una consulta de texto real ya funciona de punta a punta.
 
 **No existe todavía:**
-- `/api/v1/consulta` — el pipeline completo de consulta ciudadana (clasificar
-  intención, resolver candidatura, recuperar evidencia, generar veredicto). El
-  frontend ya está armado esperando este endpoint.
-- `/api/v1/estado` (bandera de silencio electoral).
-- El Camino A de ingesta completo (n8n + webhook + `/api/v1/ingest`) — solo la mitad
-  (repo del corpus + Action) existe; fusionar un PR ahí no reindexa nada todavía.
+- **Entrada por voz y por URL en `/api/v1/consulta`.** El composer ya graba/adjunta
+  audio y acepta URL, pero el backend las rechaza sin procesar — falta transcripción
+  Gemini, extracción/archivado de URL, y separación `cita_directa` / `parafrasis_periodistica`.
+- **Comparación factual** (contraste lado a lado entre candidatos) — la intención se
+  clasifica pero el endpoint devuelve "no disponible todavía".
+- **Caché semántico** sobre `analisis_publicados` (paso 4 del pipeline) — cada consulta
+  repite el retrieval completo; no hay chequeo previo contra veredictos ya publicados
+  ni función de búsqueda para esa colección en `qdrant_client.py`.
+- **Tool call de indicadores** (cifras oficiales, regla crítica 3) — la tabla
+  `indicadores` existe pero está vacía y sin lookup real. Hoy se resuelve solo a
+  medias: si el modelo se autoreporta `requiere_indicador=True`, una corrección
+  determinista en Python fuerza `incomprobable` (`aplicar_correccion_requiere_indicador`)
+  — correcto en el resultado, pero no hay tool call que consulte la tabla y le dé al
+  modelo la cifra real cuando sí existe.
+- **Fallback en cascada completo** (provincia → cantón → parroquia → dignidad) — solo
+  existe el nivel "dignidad" (`fallback_<dignidad>`); los selectores geográficos en
+  cascada no están.
+- **Flujo de revisión editorial / publicación** (regla crítica 4: "veredicto sin firma
+  de revisor nunca sale con `estado='publicado'`) — no hay endpoint ni pantalla para
+  que un periodista abra un análisis en `borrador`/`en_revision`, lo firme
+  (`revisor_id`, `revisado_en`), agregue `respuesta_candidato`, y lo pase a
+  `publicado`. El frontend solo muestra el badge de estado (`informe-card.js`), no
+  permite actuar sobre él. Sin esto, ningún veredicto puede llegar a publicarse.
+- Colección `contexto`: se puede ingestar y hay `search_contexto()`, pero nada del
+  pipeline de consulta/veredicto la llama todavía.
+- El Camino A de ingesta completo (n8n + webhook + `POST /api/v1/ingest`) — settings
+  (`github_webhook_secret`, `ingest_api_token`) ya están provisionados pero sin
+  endpoint ni consumidor; fusionar un PR en `lodicho-corpus` no reindexa nada.
+- Detección de `.md` eliminado del corpus (status `removed` en la tabla de estados de
+  archivo) — sigue sin un flujo que lo detecte.
 - Contenido real en el corpus: ni el COOTAD ni ningún plan de trabajo están
-  ingestados. `marco_legal/`, `planes_trabajo/`, `contexto/` están vacíos salvo los
-  ejemplos de referencia (que a propósito no cuentan como corpus real).
-- Pipeline de análisis/veredicto: auto-consistencia, verificador de anclaje, cálculo
-  de factibilidad — sin código, solo el esquema en Postgres.
-- Alta de candidaturas: no hay pantalla para registrar una `candidatura` todavía;
-  `ingest.py` exige que ya exista antes de ingestar su plan, y hoy eso se hace a mano
-  por SQL directo.
-- Set de evaluación de 25–30 afirmaciones anotadas a mano.
+  ingestados; `lodicho-corpus` no está ni clonado localmente en este entorno.
+- Set de evaluación de 25–30 afirmaciones anotadas a mano — no existe.
 
-**Siguiente paso lógico:** cargar el COOTAD real vía el panel de admin como primer
-caso de punta a punta, y recién después construir `/api/v1/consulta`.
+**Siguiente paso lógico:** cargar el COOTAD real y al menos un plan de trabajo vía el
+panel de admin como primer caso de punta a punta con contenido real, y en paralelo
+cerrar la revisión editorial (sin eso ningún veredicto puede publicarse legalmente) y
+el tool call de indicadores (regla crítica 3).
 
 ---
 
