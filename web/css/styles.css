@@ -1293,3 +1293,36 @@ svg {
   background: var(--veredicto-falso-bg);
   color: var(--veredicto-falso-text);
 }
+
+/* ==========================================================================
+   Offline Fallback Page
+   ========================================================================== */
+
+.offline-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 100vh;
+  padding: 32px;
+  text-align: center;
+}
+
+.offline-screen__icon {
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+}
+
+.offline-screen h1 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.offline-screen p {
+  max-width: 420px;
+  color: var(--color-text-muted);
+  font-size: 14.5px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
