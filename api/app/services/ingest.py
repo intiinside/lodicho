@@ -227,7 +227,13 @@ def _dividir_parrafo_largo(parrafo: str, limite_chars: int) -> list[str]:
 
 
 def _payload(meta: dict, tipo: str, doc_id: str, texto: str, git_sha: str) -> dict:
-    payload = {"doc_id": doc_id, "texto": texto, "git_sha": git_sha, "tipo": tipo}
+    payload = {
+        "doc_id": doc_id,
+        "texto": texto,
+        "git_sha": git_sha,
+        "tipo": tipo,
+        "fuente_url": meta.get("fuente_url"),
+    }
     if tipo == "plan_trabajo":
         payload["candidatura_id"] = meta.get("candidatura_id")
         payload["jurisdiccion_dpa"] = meta.get("jurisdiccion_dpa")

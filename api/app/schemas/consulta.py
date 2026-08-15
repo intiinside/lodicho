@@ -86,6 +86,7 @@ class EvidenciaItem(BaseModel):
     doc_id: str
     git_sha: str
     point_id: str
+    fuente_url: str | None = None
 
 
 class EvidenciaEventData(BaseModel):

@@ -33,6 +33,7 @@ def _a_evidencia_item(punto: qdrant_models.ScoredPoint, paso: PasoEvidencia) -> 
         doc_id=payload["doc_id"],
         git_sha=payload["git_sha"],
         point_id=str(punto.id),
+        fuente_url=payload.get("fuente_url"),
     )
 
 
