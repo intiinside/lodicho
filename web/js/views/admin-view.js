@@ -140,7 +140,10 @@ async function renderDocumentos(container, api) {
               <td style="padding:14px 18px;"><code style="font-family:var(--font-mono);">${escapeHtml(d.doc_id)}</code></td>
               <td style="padding:14px 18px;">${escapeHtml(d.tipo)}</td>
               <td style="padding:14px 18px;">${d.n_chunks}</td>
-              <td style="padding:14px 18px;">
+              <td style="padding:14px 18px; display:flex; gap:8px;">
+                <button type="button" class="btn-secondary" style="padding:5px 12px; font-size:12px;" data-editar="${escapeHtml(d.doc_id)}">
+                  Editar
+                </button>
                 <button type="button" class="btn-secondary" style="padding:5px 12px; font-size:12px;" data-reingestar="${escapeHtml(d.doc_id)}">
                   Reindexar
                 </button>
@@ -162,6 +165,20 @@ async function renderDocumentos(container, api) {
       } catch (err) {
         mostrarToast(err.message);
       } finally {
+        boton.disabled = false;
+      }
+    });
+  });
+
+  container.querySelectorAll("[data-editar]").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      const docId = boton.dataset.editar;
+      boton.disabled = true;
+      try {
+        const r = await api.editarDocumento(docId);
+        await renderRevisar(container, api, { borrador_id: r.borrador_id, markdown: r.markdown, tipo: r.tipo }, r.meta);
+      } catch (err) {
+        mostrarToast(err.message);
         boton.disabled = false;
       }
     });
@@ -402,68 +419,66 @@ function renderSubir(container, api) {
   actualizarModo("pdf");
 }
 
-async function renderRevisar(container, api, datosIniciales) {
+async function renderRevisar(container, api, datosIniciales, metaInicial = {}) {
   const estado = {
     borradorId: datosIniciales.borrador_id,
     tipo: datosIniciales.tipo,
     markdown: datosIniciales.markdown,
-    meta: { tipo: datosIniciales.tipo, vigente: true },
+    meta: metaInicial,
   };
+  const editandoExistente = Boolean(metaInicial.doc_id);
 
-  const camposEspecificos = CAMPOS_POR_TIPO[estado.tipo] || [];
-  let candidaturas = [];
-  if (estado.tipo === "plan_trabajo") {
-    try {
-      candidaturas = await api.listarCandidaturas();
-    } catch {}
+  let candidaturasCache = null;
+  async function candidaturas() {
+    if (!candidaturasCache) {
+      try {
+        candidaturasCache = await api.listarCandidaturas();
+      } catch {
+        candidaturasCache = [];
+      }
+    }
+    return candidaturasCache;
   }
 
   container.innerHTML = `
     <div class="console-card">
       <h2 style="font-size:17px; font-weight:700; margin-bottom:18px;">Paso 2: Edición y Validación Editorial</h2>
+      ${editandoExistente ? `<div class="banner banner--warning" style="margin-bottom:16px;">Estás editando un documento ya ingestado. Si cambias el tipo, el archivo y los fragmentos viejos se eliminan al confirmar — recuerda volver a pulsar "Ingestar" después.</div>` : ""}
       <div id="admin-validacion"></div>
-      
+
       <div style="display:flex; flex-direction:column; gap:16px;">
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Tipo de documento</label>
+          <select class="console-select" id="admin-tipo-doc">
+            <option value="marco_legal">Marco Legal (COOTAD, Leyes)</option>
+            <option value="plan_trabajo">Plan de Trabajo Oficial CNE</option>
+            <option value="contexto">Contexto Territorial</option>
+          </select>
+        </div>
+
         <div>
           <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">doc_id (identificador único)</label>
           <input type="text" class="console-input" id="admin-doc-id" placeholder="ej: plan-bolivar-simiatug-junta-18-2027" />
         </div>
-        
-        ${estado.tipo === "plan_trabajo" ? `
-          <div>
-            <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Candidatura asociada</label>
-            <select class="console-select" id="admin-campo-candidatura_id" data-campo="candidatura_id">
-              <option value="">-- Seleccionar Candidatura --</option>
-              ${candidaturas.map(c => `<option value="${c.id}">${escapeHtml(`${c.organizacion_politica} - Lista ${c.lista_numero} (${c.dignidad})`)}</option>`).join("")}
-            </select>
-          </div>
-        ` : ""}
-        
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
-          ${camposEspecificos.map(c => `
-            <div>
-              <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">${escapeHtml(c.etiqueta)}</label>
-              <input type="${c.tipo}" class="console-input" id="admin-campo-${c.clave}" data-campo="${c.clave}" placeholder="${escapeHtml(c.placeholder)}" />
-            </div>
-          `).join("")}
-        </div>
-        
+
+        <div id="admin-campos-tipo"></div>
+
         <div>
           <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">URL fuente oficial (CNE)</label>
           <input type="url" class="console-input" id="admin-fuente-url" placeholder="https://..." />
         </div>
-        
+
         <div>
           <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Revisor editorial responsable</label>
           <input type="text" class="console-input" id="admin-revisado-por" placeholder="nombre.apellido" />
         </div>
-        
+
         <div>
           <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Cuerpo del Documento (Markdown)</label>
           <textarea class="console-textarea" id="admin-markdown" style="min-height:280px; font-family:var(--font-mono); font-size:13px;"></textarea>
         </div>
       </div>
-      
+
       <div style="display:flex; gap:12px; margin-top:24px; flex-wrap:wrap;">
         <button type="button" class="btn-secondary" id="admin-validar-btn" style="flex:1;">Validar Reglas</button>
         <button type="button" class="btn-primary" id="admin-confirmar-btn" style="flex:1;">Confirmar y Publicar</button>
@@ -473,6 +488,55 @@ async function renderRevisar(container, api, datosIniciales) {
   `;
 
   container.querySelector("#admin-markdown").value = estado.markdown;
+  container.querySelector("#admin-doc-id").value = estado.meta.doc_id || "";
+  container.querySelector("#admin-fuente-url").value = estado.meta.fuente_url || "";
+  container.querySelector("#admin-revisado-por").value = estado.meta.revisado_por || "";
+
+  const selectTipoDoc = container.querySelector("#admin-tipo-doc");
+  selectTipoDoc.value = estado.tipo;
+
+  async function pintarCamposTipo() {
+    const camposEspecificos = CAMPOS_POR_TIPO[estado.tipo] || [];
+    const contenedor = container.querySelector("#admin-campos-tipo");
+
+    let selectorCandidatura = "";
+    if (estado.tipo === "plan_trabajo") {
+      const lista = await candidaturas();
+      selectorCandidatura = `
+        <div style="margin-bottom:16px;">
+          <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">Candidatura asociada</label>
+          <select class="console-select" id="admin-campo-candidatura_id" data-campo="candidatura_id">
+            <option value="">-- Seleccionar Candidatura --</option>
+            ${lista.map(c => `<option value="${c.id}" ${String(c.id) === String(estado.meta.candidatura_id ?? "") ? "selected" : ""}>${escapeHtml(`${c.organizacion_politica} - Lista ${c.lista_numero} (${c.dignidad})`)}</option>`).join("")}
+          </select>
+        </div>
+      `;
+    }
+
+    contenedor.innerHTML = `
+      ${selectorCandidatura}
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+        ${camposEspecificos.map(c => `
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--color-text-subtle); display:block; margin-bottom:6px;">${escapeHtml(c.etiqueta)}</label>
+            <input type="${c.tipo}" class="console-input" id="admin-campo-${c.clave}" data-campo="${c.clave}" placeholder="${escapeHtml(c.placeholder)}" />
+          </div>
+        `).join("")}
+      </div>
+    `;
+
+    camposEspecificos.forEach((c) => {
+      const input = contenedor.querySelector(`#admin-campo-${c.clave}`);
+      if (input && estado.meta[c.clave] != null) input.value = estado.meta[c.clave];
+    });
+  }
+
+  await pintarCamposTipo();
+
+  selectTipoDoc.addEventListener("change", async () => {
+    estado.tipo = selectTipoDoc.value;
+    await pintarCamposTipo();
+  });
 
   function leerFormulario() {
     const meta = { tipo: estado.tipo, vigente: true };

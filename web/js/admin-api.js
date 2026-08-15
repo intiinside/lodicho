@@ -122,6 +122,10 @@ export function listarDocumentos() {
   return llamar("/documentos");
 }
 
+export function editarDocumento(docId) {
+  return llamar(`/documentos/${encodeURIComponent(docId)}/editar`, { method: "POST" });
+}
+
 export function listarCandidaturas() {
   return llamar("/candidaturas");
 }

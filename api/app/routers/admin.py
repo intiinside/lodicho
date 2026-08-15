@@ -308,7 +308,7 @@ class ConfirmarResponse(BaseModel):
     response_model=ConfirmarResponse,
     dependencies=[Depends(requiere_admin)],
 )
-def confirmar_borrador(borrador_id: str) -> ConfirmarResponse:
+def confirmar_borrador(borrador_id: str, session: Session = Depends(get_session)) -> ConfirmarResponse:
     b = _obtener_borrador(borrador_id)
     meta = _meta_con_campos_automaticos(b)
 
@@ -335,10 +335,42 @@ def confirmar_borrador(borrador_id: str) -> ConfirmarResponse:
         shutil.copy(b.pdf_temp_path, ruta_pdf)
         rutas_relativas.append(str(ruta_pdf.relative_to(corpus_path)))
 
+    # Editando un documento existente y cambio tipo y/o doc_id (p.ej. estaba
+    # mal cargado como marco_legal y en realidad es plan_trabajo): el
+    # archivo viejo, sus puntos en la coleccion vieja de Qdrant, y la fila
+    # vieja en Postgres quedarian huerfanos si no se limpian aca mismo.
+    es_movimiento = bool(b.doc_id_original) and (b.doc_id_original != doc_id or b.tipo_original != tipo)
+    if es_movimiento:
+        ruta_md_anterior = corpus_path / DIR_POR_TIPO[b.tipo_original] / f"{b.doc_id_original}.md"
+        if ruta_md_anterior.exists() and ruta_md_anterior != ruta_md:
+            ruta_md_anterior.unlink()
+            rutas_relativas.append(str(ruta_md_anterior.relative_to(corpus_path)))
+
+        ruta_pdf_anterior = corpus_path / "pdfs" / DIR_POR_TIPO[b.tipo_original] / f"{b.doc_id_original}.pdf"
+        if ruta_pdf_anterior.exists():
+            ruta_pdf_anterior.unlink()
+            rutas_relativas.append(str(ruta_pdf_anterior.relative_to(corpus_path)))
+
+    mensaje_commit = (
+        f"Corrige {b.doc_id_original} -> {doc_id} (panel de admin)"
+        if es_movimiento
+        else f"Agrega {doc_id} (panel de admin)"
+    )
+
     try:
-        git_sha = corpus_git.commitear_y_pushear(corpus_path, rutas_relativas, f"Agrega {doc_id} (panel de admin)")
+        git_sha = corpus_git.commitear_y_pushear(corpus_path, rutas_relativas, mensaje_commit)
     except corpus_git.GitCorpusError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    if es_movimiento:
+        delete_by_doc_id(ALIAS_POR_TIPO[b.tipo_original], b.doc_id_original)
+        if b.doc_id_original != doc_id:
+            documento_anterior = session.execute(
+                select(Documento).where(Documento.doc_id == b.doc_id_original)
+            ).scalar_one_or_none()
+            if documento_anterior is not None:
+                session.delete(documento_anterior)
+                session.commit()
 
     if b.pdf_temp_path:
         b.pdf_temp_path.unlink(missing_ok=True)
