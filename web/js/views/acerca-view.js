@@ -1,69 +1,43 @@
-// Contenido estatico. La rubrica y las definiciones de veredicto se
-// publican en el sitio a proposito (CLAUDE.md, Rubrica de factibilidad):
-// el desglose es lo auditable, no un numero suelto.
 export async function render(container) {
   container.innerHTML = `
-    <section class="acerca">
-      <h1 style="font-size:20px; margin-bottom:8px;">Acerca de Lo Dicho</h1>
-      <p class="field-hint" style="margin-bottom:20px;">
-        Piloto en la provincia de Bolívar (Guaranda, Simiátug). Contrasta
-        declaraciones de candidatos contra su plan de trabajo registrado y
-        el COOTAD.
-      </p>
+    <div class="dash-hero">
+      <h1 class="dash-hero__title">Acerca de Lo Dicho</h1>
+      <p class="dash-hero__subtitle">Piloto en la provincia de Bolívar.</p>
+    </div>
+    
+    <div class="console-card">
+      <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">Lo que no hacemos</h2>
+      <ul class="acerca-bullets">
+        <li>No recomendamos voto ni comparamos la calidad de los candidatos.</li>
+        <li>No inventamos cifras: sin un indicador oficial disponible, el veredicto es <em>incomprobable</em>.</li>
+        <li>Ningún veredicto categórico se publica sin revisión humana.</li>
+      </ul>
+    </div>
 
-      <h2 style="font-size:15px; margin-bottom:8px;">Lo que no hacemos</h2>
-      <div class="informe-card" style="padding:16px; margin-bottom:20px;">
-        <p style="margin-bottom:8px;">No recomendamos voto ni comparamos la calidad de los candidatos.</p>
-        <p style="margin-bottom:8px;">No inventamos cifras: sin un indicador oficial disponible, el veredicto es
-          <em>incomprobable</em>, nunca un número inferido.</p>
-        <p>Ningún veredicto categórico se publica sin que un periodista lo revise y firme.</p>
+    <div class="console-card">
+      <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Veredictos Posibles</h2>
+      <div class="verdict-explain-grid">
+        ${Object.entries(VEREDICTOS_DESC).map(([clave, desc]) => `
+          <div class="verdict-explain-card">
+            <span class="veredicto-badge veredicto-badge--${clave}" style="align-self: flex-start;">${LABELS[clave]}</span>
+            <p class="verdict-explain-desc">${desc}</p>
+          </div>
+        `).join("")}
       </div>
+    </div>
 
-      <h2 style="font-size:15px; margin-bottom:8px;">Los seis veredictos posibles</h2>
-      <dl class="acerca-lista" style="margin-bottom:20px;">
-        ${Object.entries(VEREDICTOS_DESC)
-          .map(
-            ([clave, desc]) => `
-              <div class="informe-card" style="padding:12px 16px; margin-bottom:8px;">
-                <p><span class="veredicto-badge veredicto-badge--${clave}" style="margin-bottom:6px; display:inline-flex;">${LABELS[clave]}</span></p>
-                <p class="field-hint" style="margin-top:6px;">${desc}</p>
-              </div>
-            `
-          )
-          .join("")}
-      </dl>
-
-      <h2 style="font-size:15px; margin-bottom:8px;">Rúbrica de factibilidad</h2>
-      <p class="field-hint" style="margin-bottom:8px;">
-        El puntaje nunca lo genera el modelo de lenguaje: el modelo llena
-        factores discretos y un cálculo con pesos fijos produce el número.
-        No existe "veracidad en porcentaje" — la veracidad es categórica.
-      </p>
-      <div class="informe-card" style="padding:4px 16px; margin-bottom:20px;">
-        ${FACTORES.map(
-          (f) => `
-            <div class="factibilidad__factor">
-              <span class="factibilidad__factor-nombre">${f.nombre}</span>
-              <span class="factibilidad__factor-valor">${f.peso}</span>
-            </div>
-          `
-        ).join("")}
+    <div class="console-card">
+      <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">Rúbrica de factibilidad</h2>
+      <p class="field-hint" style="text-align: left; margin-bottom: 16px;">El modelo llena factores discretos y un cálculo con pesos fijos produce el número.</p>
+      <div>
+        ${FACTORES.map(f => `
+          <div class="factibilidad__factor">
+            <span class="factibilidad__factor-nombre">${f.nombre}</span>
+            <span class="factibilidad__factor-valor">${f.peso}</span>
+          </div>
+        `).join("")}
       </div>
-
-      <h2 style="font-size:15px; margin-bottom:8px;">Trazabilidad</h2>
-      <p class="field-hint" style="margin-bottom:20px;">
-        Cada afirmación del informe enlaza a un fragmento concreto —
-        colección, <code>doc_id</code> y el <code>git_sha</code> exacto de
-        la versión del documento fuente— disponible desde "Ver evidencia".
-      </p>
-
-      <h2 style="font-size:15px; margin-bottom:8px;">Derecho a réplica y silencio electoral</h2>
-      <p class="field-hint" style="margin-bottom:8px;">
-        Cada candidatura tiene derecho de respuesta sobre cualquier informe
-        publicado. Durante el silencio electoral solo se muestran informes
-        ya publicados; no se genera contenido nuevo.
-      </p>
-    </section>
+    </div>
   `;
 }
 
@@ -77,13 +51,12 @@ const LABELS = {
 };
 
 const VEREDICTOS_DESC = {
-  viable_y_en_plan: "La propuesta consta en el plan de trabajo registrado y es competencia de ese nivel de gobierno.",
-  fuera_de_competencia:
-    "El nivel de gobierno del candidato no tiene esa competencia. Excepción importante: gestionar una obra ante otro nivel sí es legítimo, no se marca como extralimitación.",
-  no_consta_en_plan: "El plan de trabajo se recuperó correctamente, pero la propuesta no aparece en él.",
-  informacion_enganosa: "Usa una cifra real pero descontextualizada, de forma que induce a una conclusión distinta de la que soportan los datos.",
-  informacion_falsa: "La afirmación contradice el dato oficial disponible.",
-  incomprobable: "No hay un indicador oficial disponible para verificar la cifra. Nunca se reemplaza por una cifra inferida.",
+  viable_y_en_plan: "Consta en el plan de trabajo y es competencia de ese nivel de gobierno.",
+  fuera_de_competencia: "El nivel de gobierno no tiene la competencia.",
+  no_consta_en_plan: "El plan se recuperó correctamente pero no aparece.",
+  informacion_enganosa: "Cifra real descontextualizada.",
+  informacion_falsa: "Contradice el dato oficial disponible.",
+  incomprobable: "Sin indicador oficial para verificar la cifra.",
 };
 
 const FACTORES = [

@@ -1,36 +1,31 @@
-// Composer unico, estilo Gemini/ChatGPT: una sola caja que crece, en vez
-// de tabs separados para texto/voz/URL. El modo (texto/voz/url) se
-// infiere al enviar, no lo elige el usuario de antemano:
-//   - hay audio adjunto (dictado o subido)  -> voz
-//   - el texto completo es una URL           -> url
-//   - cualquier otra cosa                    -> texto
 import { ICONS } from "../icons.js";
 
 const RecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 const URL_RE = /^https?:\/\/\S+$/i;
-const LIMITE_AUDIO_BYTES = 10 * 1024 * 1024; // CLAUDE.md: limite de 10 MB en subida de audio
+const LIMITE_AUDIO_BYTES = 10 * 1024 * 1024; 
 
 export function crearComposer({ onEnviar }) {
   const el = document.createElement("div");
-  el.className = "composer";
+  el.className = "console-card";
   el.innerHTML = `
     <textarea
-      class="composer__textarea"
+      class="console-textarea"
       id="composer-texto"
       placeholder="Escribí, pegá una URL, o dictá lo que dijo el candidato…"
-      rows="1"
     ></textarea>
-    <div class="composer__chip" id="composer-chip" hidden></div>
-    <div class="composer__toolbar">
-      <div class="composer__tools">
-        <button type="button" class="composer__tool" id="composer-mic" aria-label="Dictar" title="Dictar">${ICONS.mic}</button>
-        <button type="button" class="composer__tool" id="composer-attach" aria-label="Subir audio" title="Subir audio">${ICONS.attach}</button>
-        <button type="button" class="composer__tool" id="composer-link" aria-label="Pegar URL" title="Pegar URL">${ICONS.link}</button>
-        <input type="file" id="composer-file" accept="audio/*" hidden />
-      </div>
-      <button type="button" class="composer__enviar" id="composer-enviar" disabled aria-label="Consultar">${ICONS.send}</button>
+    <div class="audio-file-preview" id="composer-chip" hidden style="margin-top: 16px;"></div>
+    
+    <div style="display: flex; gap: 12px; margin-top: 16px;">
+      <button type="button" class="btn btn--ghost" id="composer-mic" aria-label="Dictar" style="flex: 1; padding: 10px;">${ICONS.mic}</button>
+      <button type="button" class="btn btn--ghost" id="composer-attach" aria-label="Subir audio" style="flex: 1; padding: 10px;">${ICONS.attach}</button>
+      <button type="button" class="btn btn--ghost" id="composer-link" aria-label="Pegar URL" style="flex: 1; padding: 10px;">${ICONS.link}</button>
+      <input type="file" id="composer-file" accept="audio/*" hidden />
     </div>
-    <p class="composer__status" id="composer-status"></p>
+    
+    <button type="button" class="btn btn--primary" id="composer-enviar" disabled style="margin-top: 16px;">
+      ${ICONS.send} Consultar Evidencia
+    </button>
+    <p class="field-hint" id="composer-status"></p>
   `;
 
   const textarea = el.querySelector("#composer-texto");
@@ -48,18 +43,20 @@ export function crearComposer({ onEnviar }) {
   let chunks = [];
   let reconocimiento = null;
 
-  function autoresize() {
-    textarea.style.height = "auto";
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
-  }
-
   function actualizarEnviar() {
     botonEnviar.disabled = grabando || !(textarea.value.trim() || audioBlob);
   }
 
   function mostrarChip(etiqueta) {
     chip.hidden = false;
-    chip.innerHTML = `${ICONS.mic}<span>${etiqueta}</span><button type="button" aria-label="Quitar audio">${ICONS.close}</button>`;
+    chip.innerHTML = `
+      <div class="audio-file-preview__icon">${ICONS.mic}</div>
+      <div class="audio-file-preview__meta">
+        <div class="audio-file-preview__name">${etiqueta}</div>
+        <div class="audio-file-preview__size">Audio adjunto a la consulta</div>
+      </div>
+      <button type="button" class="audio-file-preview__clear" aria-label="Quitar audio">${ICONS.close}</button>
+    `;
     chip.querySelector("button").addEventListener("click", quitarAudio);
   }
 
@@ -70,12 +67,8 @@ export function crearComposer({ onEnviar }) {
     actualizarEnviar();
   }
 
-  textarea.addEventListener("input", () => {
-    autoresize();
-    actualizarEnviar();
-  });
+  textarea.addEventListener("input", actualizarEnviar);
 
-  // --- subir un audio ya grabado ---
   botonAttach.addEventListener("click", () => inputFile.click());
   inputFile.addEventListener("change", () => {
     const archivo = inputFile.files[0];
@@ -91,13 +84,11 @@ export function crearComposer({ onEnviar }) {
     actualizarEnviar();
   });
 
-  // --- pegar URL desde el portapapeles ---
   botonLink.addEventListener("click", async () => {
     try {
       const texto = await navigator.clipboard.readText();
       if (texto) {
         textarea.value = texto.trim();
-        autoresize();
         actualizarEnviar();
       }
       textarea.focus();
@@ -107,7 +98,6 @@ export function crearComposer({ onEnviar }) {
     }
   });
 
-  // --- dictado: un toque para empezar, otro para parar ---
   botonMic.addEventListener("click", () => (grabando ? detenerDictado() : iniciarDictado()));
 
   async function iniciarDictado() {
@@ -122,8 +112,8 @@ export function crearComposer({ onEnviar }) {
 
     grabando = true;
     chunks = [];
-    botonMic.dataset.recording = "true";
     botonMic.innerHTML = ICONS.stop;
+    botonMic.style.color = "var(--veredicto-falso-text)";
     status.textContent = "Escuchando…";
     actualizarEnviar();
 
@@ -136,19 +126,13 @@ export function crearComposer({ onEnviar }) {
         let texto = "";
         for (let i = 0; i < evento.results.length; i++) texto += evento.results[i][0].transcript;
         textarea.value = texto;
-        autoresize();
       };
-      reconocimiento.onerror = () => {
-        // Best-effort: si la vista previa falla, el audio se sigue
-        // grabando igual y Gemini transcribe del lado del servidor.
-      };
+      reconocimiento.onerror = () => {};
       try {
         reconocimiento.start();
-      } catch {
-        /* ya iniciado, o no soportado en este momento */
-      }
+      } catch {}
     } else {
-      status.textContent = "Grabando… (vista previa en vivo no disponible en este navegador)";
+      status.textContent = "Grabando… (vista previa en vivo no disponible)";
     }
 
     try {
@@ -167,14 +151,10 @@ export function crearComposer({ onEnviar }) {
   function detenerDictado() {
     if (!grabando) return;
     grabando = false;
-    botonMic.dataset.recording = "false";
     botonMic.innerHTML = ICONS.mic;
+    botonMic.style.color = "";
 
-    try {
-      reconocimiento?.stop();
-    } catch {
-      /* noop */
-    }
+    try { reconocimiento?.stop(); } catch {}
 
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       mediaRecorder.addEventListener(
@@ -182,7 +162,7 @@ export function crearComposer({ onEnviar }) {
         () => {
           audioBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
           mediaRecorder.stream.getTracks().forEach((track) => track.stop());
-          mostrarChip("Audio dictado");
+          mostrarChip("Audio dictado en la app");
           status.textContent = "Listo. Revisá el texto antes de enviar.";
           actualizarEnviar();
         },
@@ -211,13 +191,11 @@ export function crearComposer({ onEnviar }) {
 
   function resetear() {
     textarea.value = "";
-    autoresize();
     quitarAudio();
     status.textContent = "";
     actualizarEnviar();
   }
 
   actualizarEnviar();
-
   return el;
 }

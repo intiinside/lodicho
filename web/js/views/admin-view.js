@@ -1,11 +1,3 @@
-// Panel de admin: subir PDF -> convertir a Markdown (Docling, del lado
-// del servidor) -> revisar/editar -> commitear a lodicho-corpus -> ingestar
-// a Qdrant. Todo desde el navegador, sin que el revisor toque una
-// terminal ni git (ver api/app/services/corpus_git.py).
-//
-// No enlazado desde la nav publica a proposito: es una herramienta
-// interna, no una funcion de cara al ciudadano. Se entra escribiendo
-// #/admin directamente.
 import { ICONS } from "../icons.js";
 import { escapeHtml, formatearFecha } from "../util.js";
 
@@ -24,6 +16,12 @@ const CAMPOS_POR_TIPO = {
   contexto: [{ clave: "jurisdiccion_dpa", etiqueta: "Jurisdicción DPA", tipo: "text", placeholder: "0207" }],
 };
 
+const SECCIONES = [
+  { clave: "subir", etiqueta: "Subir PDF" },
+  { clave: "documentos", etiqueta: "Documentos" },
+  { clave: "candidaturas", etiqueta: "Candidaturas" },
+];
+
 export async function render(container) {
   const api = await import("../admin-api.js");
 
@@ -37,13 +35,16 @@ export async function render(container) {
 
 function renderLogin(container, api) {
   container.innerHTML = `
-    <div class="admin-login">
-      <h1>Panel de admin</h1>
-      <div class="admin-field">
-        <input type="password" class="admin-input" id="admin-password" placeholder="Contraseña" autocomplete="current-password" />
+    <div class="dash-hero">
+      <h1 class="dash-hero__title">Gestión de Corpus</h1>
+      <p class="dash-hero__subtitle">Acceso restringido al equipo editorial.</p>
+    </div>
+    <div class="console-card" style="max-width: 400px;">
+      <div style="margin-bottom: 24px;">
+        <input type="password" class="console-input" id="admin-password" placeholder="Contraseña de acceso" autocomplete="current-password" />
       </div>
-      <button type="button" class="btn btn--primary btn--block" id="admin-login-btn">Entrar</button>
-      <p class="field-hint" id="admin-login-error"></p>
+      <button type="button" class="btn btn--primary" id="admin-login-btn">Ingresar al Dashboard</button>
+      <p class="field-hint" id="admin-login-error" style="color: var(--veredicto-falso-text);"></p>
     </div>
   `;
 
@@ -66,34 +67,30 @@ function renderLogin(container, api) {
   }
 
   boton.addEventListener("click", intentar);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") intentar();
-  });
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") intentar(); });
   input.focus();
 }
 
-const SECCIONES = [
-  { clave: "subir", etiqueta: "Subir" },
-  { clave: "documentos", etiqueta: "Documentos" },
-  { clave: "candidaturas", etiqueta: "Candidaturas" },
-];
-
 function renderPanel(container, api, seccion) {
   container.innerHTML = `
-    <div class="admin-nav">
-      ${SECCIONES.map(
-        (s) => `
-          <button type="button" class="admin-nav__item${s.clave === seccion ? " admin-nav__item--activo" : ""}" data-seccion="${s.clave}">
-            ${escapeHtml(s.etiqueta)}
-          </button>
-        `
-      ).join("")}
-      <button type="button" class="admin-nav__item admin-nav__item--salir" id="admin-salir">Salir</button>
+    <div class="dash-hero">
+      <h1 class="dash-hero__title">Gestión de Documentos</h1>
+      <p class="dash-hero__subtitle">Administra los planes de trabajo, leyes y contexto.</p>
     </div>
-    <div id="admin-contenido"></div>
+    
+    <div class="console-tabs" role="tablist">
+      ${SECCIONES.map(s => `
+        <button type="button" class="console-tab" aria-selected="${s.clave === seccion ? "true" : "false"}" data-seccion="${s.clave}">
+          ${escapeHtml(s.etiqueta)}
+        </button>
+      `).join("")}
+      <button type="button" class="console-tab" id="admin-salir" style="color: var(--veredicto-falso-text);">Salir</button>
+    </div>
+    
+    <div id="admin-contenido" style="margin-top: 24px;"></div>
   `;
 
-  container.querySelectorAll(".admin-nav__item[data-seccion]").forEach((boton) => {
+  container.querySelectorAll(".console-tab[data-seccion]").forEach((boton) => {
     boton.addEventListener("click", () => renderPanel(container, api, boton.dataset.seccion));
   });
 
@@ -103,29 +100,20 @@ function renderPanel(container, api, seccion) {
   });
 
   const contenido = container.querySelector("#admin-contenido");
-  if (seccion === "documentos") {
-    renderDocumentos(contenido, api);
-  } else if (seccion === "candidaturas") {
-    renderCandidaturas(contenido, api);
-  } else {
-    renderSubir(contenido, api);
-  }
+  if (seccion === "documentos") renderDocumentos(contenido, api);
+  else if (seccion === "candidaturas") renderCandidaturas(contenido, api);
+  else renderSubir(contenido, api);
 }
 
 async function renderDocumentos(container, api) {
-  container.innerHTML = `<div class="state-block"><div class="spinner"></div><p>Cargando…</p></div>`;
-
+  container.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando…</p></div>`;
   let documentos;
-  try {
-    ({ documentos } = await api.listarDocumentos());
-  } catch (err) {
-    container.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`;
-    return;
-  }
+  try { ({ documentos } = await api.listarDocumentos()); } 
+  catch (err) { container.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`; return; }
 
   if (!documentos.length) {
     container.innerHTML = `
-      <div class="state-block">
+      <div class="loading-state">
         ${ICONS.empty}
         <h2>Todavía no hay documentos</h2>
         <p>Los que subas y confirmes van a aparecer acá.</p>
@@ -135,8 +123,8 @@ async function renderDocumentos(container, api) {
   }
 
   container.innerHTML = `
-    <div style="overflow-x:auto;">
-      <table class="admin-tabla">
+    <div class="console-card" style="padding: 0; overflow-x: auto;">
+      <table class="admin-tabla" style="margin: 0;">
         <thead>
           <tr>
             <th>doc_id</th>
@@ -148,20 +136,16 @@ async function renderDocumentos(container, api) {
           </tr>
         </thead>
         <tbody>
-          ${documentos
-            .map(
-              (d) => `
-                <tr>
-                  <td>${escapeHtml(d.doc_id)}</td>
-                  <td>${escapeHtml(d.tipo)}</td>
-                  <td>${d.n_chunks}</td>
-                  <td>${d.indexado_en ? escapeHtml(formatearFecha(d.indexado_en)) : "—"}</td>
-                  <td>${escapeHtml(d.estado)}</td>
-                  <td><button type="button" class="admin-tabla__accion" data-reingestar="${escapeHtml(d.doc_id)}">Reingestar</button></td>
-                </tr>
-              `
-            )
-            .join("")}
+          ${documentos.map(d => `
+            <tr>
+              <td>${escapeHtml(d.doc_id)}</td>
+              <td>${escapeHtml(d.tipo)}</td>
+              <td>${d.n_chunks}</td>
+              <td>${d.indexado_en ? escapeHtml(formatearFecha(d.indexado_en)) : "—"}</td>
+              <td>${escapeHtml(d.estado)}</td>
+              <td><button type="button" class="admin-tabla__accion" data-reingestar="${escapeHtml(d.doc_id)}">Reingestar</button></td>
+            </tr>
+          `).join("")}
         </tbody>
       </table>
     </div>
@@ -177,106 +161,86 @@ async function renderDocumentos(container, api) {
       try {
         const r = await api.ingestarDocumento(docId);
         estadoEl.textContent = `${docId}: ${r.n_chunks} chunk(s) actualizados.`;
-      } catch (err) {
-        estadoEl.textContent = `${docId}: ${err.message}`;
-      } finally {
-        boton.disabled = false;
-      }
+      } catch (err) { estadoEl.textContent = `${docId}: ${err.message}`; } 
+      finally { boton.disabled = false; }
     });
   });
 }
 
 async function renderCandidaturas(container, api) {
-  container.innerHTML = `<div class="state-block"><div class="spinner"></div><p>Cargando…</p></div>`;
-
+  container.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Cargando…</p></div>`;
   let candidaturas;
-  try {
-    candidaturas = await api.listarCandidaturas();
-  } catch (err) {
-    container.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`;
-    return;
-  }
+  try { candidaturas = await api.listarCandidaturas(); } 
+  catch (err) { container.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`; return; }
 
   container.innerHTML = `
-    <h1 style="font-size:18px; margin-bottom:12px;">Candidaturas</h1>
+    ${candidaturas.length ? `
+      <div class="console-card" style="padding: 0; overflow-x: auto;">
+        <table class="admin-tabla" style="margin: 0;">
+          <thead>
+            <tr>
+              <th>org</th>
+              <th>lista</th>
+              <th>dignidad</th>
+              <th>jurisdicción</th>
+              <th>período</th>
+              <th>plan</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${candidaturas.map(c => `
+              <tr>
+                <td>${escapeHtml(c.organizacion_politica)}</td>
+                <td>${escapeHtml(c.lista_numero)}</td>
+                <td>${escapeHtml(c.dignidad)}</td>
+                <td>${escapeHtml(c.jurisdiccion_dpa)}</td>
+                <td>${escapeHtml(c.periodo)}</td>
+                <td>${escapeHtml(c.estado_plan)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    ` : `<div class="loading-state">${ICONS.empty}<p>Todavía no hay candidaturas registradas.</p></div>`}
 
-    <div style="overflow-x:auto; margin-bottom:24px;">
-      ${
-        candidaturas.length
-          ? `
-            <table class="admin-tabla">
-              <thead>
-                <tr>
-                  <th>id</th>
-                  <th>organización</th>
-                  <th>lista</th>
-                  <th>dignidad</th>
-                  <th>jurisdicción</th>
-                  <th>período</th>
-                  <th>estado del plan</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${candidaturas
-                  .map(
-                    (c) => `
-                      <tr>
-                        <td>${c.id}</td>
-                        <td>${escapeHtml(c.organizacion_politica)}</td>
-                        <td>${escapeHtml(c.lista_numero)}</td>
-                        <td>${escapeHtml(c.dignidad)}</td>
-                        <td>${escapeHtml(c.jurisdiccion_dpa)}</td>
-                        <td>${escapeHtml(c.periodo)}</td>
-                        <td>${escapeHtml(c.estado_plan)}</td>
-                      </tr>
-                    `
-                  )
-                  .join("")}
-              </tbody>
-            </table>
-          `
-          : `<div class="state-block">${ICONS.empty}<p>Todavía no hay candidaturas registradas.</p></div>`
-      }
+    <div class="console-card" style="margin-top: 24px;">
+      <h2 style="font-size:16px; margin-bottom:16px;">Nueva candidatura</h2>
+      <div id="admin-candidatura-error"></div>
+      
+      <div class="admin-grid">
+        <div class="admin-field">
+          <label for="cand-organizacion">Organización política</label>
+          <input type="text" class="console-input" id="cand-organizacion" placeholder="Partido Y" />
+        </div>
+        <div class="admin-field">
+          <label for="cand-lista">Número de lista</label>
+          <input type="text" class="console-input" id="cand-lista" placeholder="18" />
+        </div>
+        <div class="admin-field">
+          <label for="cand-dignidad">Dignidad</label>
+          <input type="text" class="console-input" id="cand-dignidad" placeholder="vocal_junta_parroquial" />
+        </div>
+        <div class="admin-field">
+          <label for="cand-jurisdiccion">Jurisdicción DPA</label>
+          <input type="text" class="console-input" id="cand-jurisdiccion" placeholder="0207" />
+        </div>
+        <div class="admin-field">
+          <label for="cand-periodo">Período</label>
+          <input type="text" class="console-input" id="cand-periodo" placeholder="2027-2031" />
+        </div>
+        <div class="admin-field">
+          <label for="cand-estado-plan">Estado del plan</label>
+          <select class="console-input" id="cand-estado-plan">
+            <option value="registrado">Registrado ante el CNE</option>
+            <option value="sin_plan_registrado">No registró plan</option>
+          </select>
+        </div>
+      </div>
+      <button type="button" class="btn btn--primary btn--block" id="cand-guardar-btn">Guardar candidatura</button>
     </div>
-
-    <h2 style="font-size:15px; margin-bottom:12px;">Nueva candidatura</h2>
-    <div id="admin-candidatura-error"></div>
-
-    <div class="admin-grid">
-      <div class="admin-field">
-        <label for="cand-organizacion">Organización política</label>
-        <input type="text" class="admin-input" id="cand-organizacion" placeholder="Partido Y" />
-      </div>
-      <div class="admin-field">
-        <label for="cand-lista">Número de lista</label>
-        <input type="text" class="admin-input" id="cand-lista" placeholder="18" />
-      </div>
-      <div class="admin-field">
-        <label for="cand-dignidad">Dignidad</label>
-        <input type="text" class="admin-input" id="cand-dignidad" placeholder="vocal_junta_parroquial" />
-      </div>
-      <div class="admin-field">
-        <label for="cand-jurisdiccion">Jurisdicción DPA</label>
-        <input type="text" class="admin-input" id="cand-jurisdiccion" placeholder="0207" />
-      </div>
-      <div class="admin-field">
-        <label for="cand-periodo">Período</label>
-        <input type="text" class="admin-input" id="cand-periodo" placeholder="2027-2031" />
-      </div>
-      <div class="admin-field">
-        <label for="cand-estado-plan">Estado del plan</label>
-        <select class="admin-select" id="cand-estado-plan">
-          <option value="registrado">Registrado ante el CNE</option>
-          <option value="sin_plan_registrado">No registró plan</option>
-        </select>
-      </div>
-    </div>
-
-    <button type="button" class="btn btn--primary btn--block" id="cand-guardar-btn">Guardar candidatura</button>
   `;
 
   const errorEl = container.querySelector("#admin-candidatura-error");
-
   container.querySelector("#cand-guardar-btn").addEventListener("click", async (evento) => {
     const datos = {
       organizacion_politica: container.querySelector("#cand-organizacion").value.trim(),
@@ -306,155 +270,125 @@ async function renderCandidaturas(container, api) {
 
 function renderSubir(container, api) {
   container.innerHTML = `
-    <p class="admin-paso">Paso 1 de 3 — Subir</p>
-    <h1 style="font-size:18px; margin-bottom:16px;">Nuevo documento</h1>
+    <div class="console-card">
+      <p class="admin-paso">Paso 1 de 3 — Subir</p>
+      
+      <div class="form-group-card" style="margin-bottom: 24px;">
+        <div class="form-row">
+          <label for="admin-tipo">Tipo de documento</label>
+          <select class="console-input" id="admin-tipo" style="padding: 0; height: auto;">
+            <option value="marco_legal">Marco legal (COOTAD, etc.)</option>
+            <option value="plan_trabajo">Plan de trabajo</option>
+            <option value="contexto">Contexto</option>
+          </select>
+        </div>
+      </div>
 
-    <div class="admin-field">
-      <label for="admin-tipo">Tipo de documento</label>
-      <select class="admin-select" id="admin-tipo">
-        <option value="marco_legal">Marco legal (COOTAD, etc.)</option>
-        <option value="plan_trabajo">Plan de trabajo</option>
-        <option value="contexto">Contexto</option>
-      </select>
+      <div class="dropzone" id="admin-dropzone" style="margin-bottom: 24px;">
+        <div class="dropzone__icon">${ICONS.attach}</div>
+        <div class="dropzone__title">Seleccionar PDF</div>
+        <div class="dropzone__subtitle" id="admin-dropzone-subtitle">Ningún archivo seleccionado</div>
+        <input type="file" id="admin-pdf" accept="application/pdf" hidden />
+      </div>
+
+      <button type="button" class="btn btn--primary btn--block" id="admin-convertir-btn">Extraer y Convertir a Markdown</button>
+      <p class="field-hint" id="admin-subir-error"></p>
+      <div id="admin-subir-estado"></div>
     </div>
-
-    <div class="admin-field">
-      <label for="admin-pdf">Archivo PDF</label>
-      <input type="file" class="admin-input" id="admin-pdf" accept="application/pdf" />
-    </div>
-
-    <button type="button" class="btn btn--primary btn--block" id="admin-convertir-btn">Convertir a Markdown</button>
-    <p class="field-hint" id="admin-subir-error"></p>
-    <div id="admin-subir-estado"></div>
   `;
 
   const selectTipo = container.querySelector("#admin-tipo");
   const inputPdf = container.querySelector("#admin-pdf");
+  const dropzone = container.querySelector("#admin-dropzone");
+  const dropzoneSubtitle = container.querySelector("#admin-dropzone-subtitle");
   const boton = container.querySelector("#admin-convertir-btn");
   const error = container.querySelector("#admin-subir-error");
   const estadoEl = container.querySelector("#admin-subir-estado");
 
+  dropzone.addEventListener("click", () => inputPdf.click());
+  inputPdf.addEventListener("change", () => {
+    if(inputPdf.files[0]) dropzoneSubtitle.textContent = inputPdf.files[0].name;
+  });
+
   boton.addEventListener("click", async () => {
     const archivo = inputPdf.files[0];
-    if (!archivo) {
-      error.textContent = "Elegí un PDF primero.";
-      return;
-    }
-    error.textContent = "";
-    boton.disabled = true;
-    estadoEl.innerHTML = `<div class="state-block"><div class="spinner"></div><p>Convirtiendo con Docling — puede tardar según el tamaño del PDF…</p></div>`;
+    if (!archivo) { error.textContent = "Elegí un PDF primero."; return; }
+    error.textContent = ""; boton.disabled = true;
+    estadoEl.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Convirtiendo con Docling…</p></div>`;
 
     try {
       const resultado = await api.convertir(selectTipo.value, archivo);
       await renderRevisar(container, api, resultado);
     } catch (err) {
-      estadoEl.innerHTML = "";
-      error.textContent = err.message;
-      boton.disabled = false;
+      estadoEl.innerHTML = ""; error.textContent = err.message; boton.disabled = false;
     }
   });
 }
 
 async function renderRevisar(container, api, datosIniciales) {
   const estado = {
-    borradorId: datosIniciales.borrador_id,
-    tipo: datosIniciales.tipo,
-    markdown: datosIniciales.markdown,
-    meta: { tipo: datosIniciales.tipo, vigente: true },
+    borradorId: datosIniciales.borrador_id, tipo: datosIniciales.tipo,
+    markdown: datosIniciales.markdown, meta: { tipo: datosIniciales.tipo, vigente: true },
   };
 
   const camposEspecificos = CAMPOS_POR_TIPO[estado.tipo] || [];
-
-  // Un plan de trabajo pertenece a una candidatura que ya tiene que
-  // existir en la DB (ver services/ingest.py) — mejor elegirla de una
-  // lista que hacer que alguien adivine un id numerico a mano.
   let candidaturas = [];
-  if (estado.tipo === "plan_trabajo") {
-    try {
-      candidaturas = await api.listarCandidaturas();
-    } catch {
-      candidaturas = [];
-    }
-  }
+  if (estado.tipo === "plan_trabajo") { try { candidaturas = await api.listarCandidaturas(); } catch {} }
 
   container.innerHTML = `
-    <p class="admin-paso">Paso 2 de 3 — Revisar</p>
-    <h1 style="font-size:18px; margin-bottom:16px;">Revisá el Markdown y completá los datos</h1>
+    <div class="console-card">
+      <p class="admin-paso">Paso 2 de 3 — Revisar</p>
+      <div id="admin-validacion"></div>
 
-    <div id="admin-validacion"></div>
+      <div class="admin-field">
+        <label for="admin-doc-id">doc_id</label>
+        <input type="text" class="console-input" id="admin-doc-id" placeholder="plan-bolivar..." />
+      </div>
 
-    <div class="admin-field">
-      <label for="admin-doc-id">doc_id</label>
-      <input type="text" class="admin-input" id="admin-doc-id" placeholder="plan-bolivar-simiatug-junta-18-2027" />
-    </div>
+      ${estado.tipo === "plan_trabajo" ? `
+        <div class="admin-field">
+          <label for="admin-campo-candidatura_id">Candidatura</label>
+          <select class="console-input" id="admin-campo-candidatura_id" data-campo="candidatura_id">
+            <option value="">— elegir —</option>
+            ${candidaturas.map(c => `<option value="${c.id}">${escapeHtml(`${c.organizacion_politica} · lista ${c.lista_numero} · ${c.dignidad}`)}</option>`).join("")}
+          </select>
+        </div>` : ""
+      }
 
-    ${
-      estado.tipo === "plan_trabajo"
-        ? `
+      <div class="admin-grid">
+        ${camposEspecificos.map(c => `
           <div class="admin-field">
-            <label for="admin-campo-candidatura_id">Candidatura</label>
-            <select class="admin-select" id="admin-campo-candidatura_id" data-campo="candidatura_id">
-              <option value="">— elegir —</option>
-              ${candidaturas
-                .map(
-                  (c) => `
-                    <option value="${c.id}">
-                      ${escapeHtml(`${c.organizacion_politica} · lista ${c.lista_numero} · ${c.dignidad}`)}
-                    </option>
-                  `
-                )
-                .join("")}
-            </select>
-            <p class="field-hint">
-              ${
-                candidaturas.length
-                  ? "¿No está en la lista? Andá a la sección Candidaturas y registrala primero."
-                  : "No hay candidaturas registradas todavía — andá a la sección Candidaturas primero."
-              }
-            </p>
-          </div>
-        `
-        : ""
-    }
+            <label for="admin-campo-${c.clave}">${escapeHtml(c.etiqueta)}</label>
+            <input type="${c.tipo}" class="console-input" id="admin-campo-${c.clave}" data-campo="${c.clave}" placeholder="${escapeHtml(c.placeholder)}" />
+          </div>`).join("")}
+      </div>
 
-    <div class="admin-grid">
-      ${camposEspecificos
-        .map(
-          (c) => `
-            <div class="admin-field">
-              <label for="admin-campo-${c.clave}">${escapeHtml(c.etiqueta)}</label>
-              <input type="${c.tipo}" class="admin-input" id="admin-campo-${c.clave}" data-campo="${c.clave}" placeholder="${escapeHtml(c.placeholder)}" />
-            </div>
-          `
-        )
-        .join("")}
-    </div>
+      <div class="admin-field">
+        <label for="admin-fuente-url">URL de la fuente</label>
+        <input type="url" class="console-input" id="admin-fuente-url" placeholder="https://…" />
+      </div>
 
-    <div class="admin-field">
-      <label for="admin-fuente-url">URL de la fuente</label>
-      <input type="url" class="admin-input" id="admin-fuente-url" placeholder="https://…" />
-    </div>
+      <div class="admin-field">
+        <label for="admin-revisado-por">Revisado por</label>
+        <input type="text" class="console-input" id="admin-revisado-por" placeholder="tu.nombre" />
+      </div>
 
-    <div class="admin-field">
-      <label for="admin-revisado-por">Revisado por</label>
-      <input type="text" class="admin-input" id="admin-revisado-por" placeholder="tu.nombre" />
-    </div>
+      <div class="admin-field admin-checkbox">
+        <input type="checkbox" id="admin-vigente" checked />
+        <label for="admin-vigente" style="margin:0;">Vigente</label>
+      </div>
 
-    <div class="admin-field admin-checkbox">
-      <input type="checkbox" id="admin-vigente" checked />
-      <label for="admin-vigente" style="margin:0;">Vigente</label>
-    </div>
+      <div class="admin-field">
+        <label for="admin-markdown">Markdown (editable)</label>
+        <textarea class="console-textarea admin-textarea--markdown" id="admin-markdown"></textarea>
+      </div>
 
-    <div class="admin-field">
-      <label for="admin-markdown">Markdown (editable)</label>
-      <textarea class="admin-textarea admin-textarea--markdown" id="admin-markdown"></textarea>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="btn btn--ghost" id="admin-validar-btn" style="flex:1;">Validar</button>
+        <button type="button" class="btn btn--primary" id="admin-confirmar-btn" style="flex:1;">Confirmar y commitear</button>
+      </div>
+      <button type="button" class="btn btn--ghost btn--block" id="admin-cancelar-btn" style="margin-top:8px;">Cancelar</button>
     </div>
-
-    <div style="display:flex; gap:8px;">
-      <button type="button" class="btn btn--ghost" id="admin-validar-btn" style="flex:1;">Validar</button>
-      <button type="button" class="btn btn--primary" id="admin-confirmar-btn" style="flex:1;">Confirmar y commitear</button>
-    </div>
-    <button type="button" class="btn btn--ghost btn--block" id="admin-cancelar-btn" style="margin-top:8px;">Cancelar</button>
   `;
 
   container.querySelector("#admin-markdown").value = estado.markdown;
@@ -471,9 +405,6 @@ async function renderRevisar(container, api, datosIniciales) {
     container.querySelectorAll("[data-campo]").forEach((input) => {
       const valor = input.value.trim();
       if (!valor) return;
-      // El unico <select> de este loop hoy es candidatura_id, que es
-      // numerico — si se suma otro select no numerico, esto hay que
-      // afinarlo por campo, no por tipo de elemento.
       const esNumerico = input.type === "number" || input.tagName === "SELECT";
       meta[input.dataset.campo] = esNumerico ? Number(valor) : valor;
     });
@@ -485,18 +416,10 @@ async function renderRevisar(container, api, datosIniciales) {
     const el = container.querySelector("#admin-validacion");
     const partes = [];
     if (resultado.errores?.length) {
-      partes.push(
-        `<div class="admin-lista-errores"><strong>Hay que corregir esto:</strong><ul>${resultado.errores
-          .map((e) => `<li>${escapeHtml(e)}</li>`)
-          .join("")}</ul></div>`
-      );
+      partes.push(`<div class="admin-lista-errores"><strong>Hay que corregir esto:</strong><ul>${resultado.errores.map((e) => `<li>${escapeHtml(e)}</li>`).join("")}</ul></div>`);
     }
     if (resultado.warnings?.length) {
-      partes.push(
-        `<div class="admin-lista-warnings"><strong>Revisar (no bloquea):</strong><ul>${resultado.warnings
-          .map((w) => `<li>${escapeHtml(w)}</li>`)
-          .join("")}</ul></div>`
-      );
+      partes.push(`<div class="admin-lista-warnings"><strong>Revisar (no bloquea):</strong><ul>${resultado.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`);
     }
     el.innerHTML = partes.join("");
   }
@@ -509,11 +432,8 @@ async function renderRevisar(container, api, datosIniciales) {
       await api.actualizarBorrador(estado.borradorId, markdown, meta);
       const resultado = await api.validarBorrador(estado.borradorId);
       mostrarValidacion(resultado);
-    } catch (err) {
-      mostrarValidacion({ errores: [err.message], warnings: [] });
-    } finally {
-      botonValidar.disabled = false;
-    }
+    } catch (err) { mostrarValidacion({ errores: [err.message], warnings: [] }); } 
+    finally { botonValidar.disabled = false; }
   });
 
   container.querySelector("#admin-confirmar-btn").addEventListener("click", async () => {
@@ -525,52 +445,47 @@ async function renderRevisar(container, api, datosIniciales) {
       const resultado = await api.confirmarBorrador(estado.borradorId);
       renderListo(container, api, resultado);
     } catch (err) {
-      if (err.detalle?.errores) {
-        mostrarValidacion(err.detalle);
-      } else {
-        mostrarValidacion({ errores: [err.message], warnings: [] });
-      }
+      if (err.detalle?.errores) mostrarValidacion(err.detalle);
+      else mostrarValidacion({ errores: [err.message], warnings: [] });
       botonConfirmar.disabled = false;
     }
   });
 
   container.querySelector("#admin-cancelar-btn").addEventListener("click", async () => {
-    try {
-      await api.descartarBorrador(estado.borradorId);
-    } catch {
-      /* si ya no existe del lado del servidor, no importa */
-    }
+    try { await api.descartarBorrador(estado.borradorId); } catch {}
     renderSubir(container, api);
   });
 }
 
 function renderListo(container, api, resultado) {
   container.innerHTML = `
-    <p class="admin-paso">Paso 3 de 3 — Ingestar</p>
-    <h1 style="font-size:18px; margin-bottom:16px;">Commiteado a lodicho-corpus</h1>
+    <div class="console-card">
+      <p class="admin-paso">Paso 3 de 3 — Ingestar</p>
+      <h1 style="font-size:18px; margin-bottom:16px;">Commiteado al repositorio</h1>
 
-    <div class="admin-resultado">
-      doc_id: ${escapeHtml(resultado.doc_id)}<br />
-      git_sha: ${escapeHtml(resultado.git_sha)}<br />
-      ruta: ${escapeHtml(resultado.ruta_md)}
+      <div class="admin-resultado">
+        doc_id: ${escapeHtml(resultado.doc_id)}<br />
+        git_sha: ${escapeHtml(resultado.git_sha)}<br />
+        ruta: ${escapeHtml(resultado.ruta_md)}
+      </div>
+
+      <button type="button" class="btn btn--primary btn--block" id="admin-ingestar-btn">Ingestar a Qdrant</button>
+      <div id="admin-ingesta-estado"></div>
+
+      <button type="button" class="btn btn--ghost btn--block" id="admin-otro-btn" style="margin-top:16px;">Cargar otro documento</button>
     </div>
-
-    <button type="button" class="btn btn--primary btn--block" id="admin-ingestar-btn">Ingestar a Qdrant</button>
-    <div id="admin-ingesta-estado"></div>
-
-    <button type="button" class="btn btn--ghost btn--block" id="admin-otro-btn" style="margin-top:16px;">Cargar otro documento</button>
   `;
 
   const estadoEl = container.querySelector("#admin-ingesta-estado");
 
   container.querySelector("#admin-ingestar-btn").addEventListener("click", async (evento) => {
     evento.target.disabled = true;
-    estadoEl.innerHTML = `<div class="state-block"><div class="spinner"></div><p>Generando embeddings y subiendo a Qdrant…</p></div>`;
+    estadoEl.innerHTML = `<div class="loading-state"><div class="spinner"></div><p>Generando embeddings e indexando…</p></div>`;
     try {
       const r = await api.ingestarDocumento(resultado.doc_id);
-      estadoEl.innerHTML = `<div class="admin-resultado">Listo: ${r.n_chunks} chunk(s) indexados en "${escapeHtml(r.tipo)}".</div>`;
+      estadoEl.innerHTML = `<div class="admin-resultado" style="margin-top: 16px;">Listo: ${r.n_chunks} chunk(s) indexados.</div>`;
     } catch (err) {
-      estadoEl.innerHTML = `<div class="admin-lista-errores">${escapeHtml(err.message)}</div>`;
+      estadoEl.innerHTML = `<div class="admin-lista-errores" style="margin-top: 16px;">${escapeHtml(err.message)}</div>`;
       evento.target.disabled = false;
     }
   });

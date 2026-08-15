@@ -1,5 +1,3 @@
-// Hoja inferior con el detalle de evidencia: chunk recuperado, score,
-// doc_id y git_sha. "Esa trazabilidad es el producto" (CLAUDE.md, Frontend).
 import { ICONS } from "../icons.js";
 import { escapeHtml } from "../util.js";
 
@@ -56,9 +54,9 @@ function itemHtml(ev) {
       <p class="evidencia-item__paso">${escapeHtml(ETIQUETA_PASO[ev.paso] || ev.paso || "")}</p>
       <p class="evidencia-item__texto">${escapeHtml(ev.texto)}</p>
       <div class="evidencia-item__meta">
-        <span>score ${escapeHtml(score)}</span>
-        <span>${escapeHtml(ev.doc_id)}</span>
-        <span>${escapeHtml((ev.git_sha || "").slice(0, 10))}</span>
+        <span>score: ${escapeHtml(score)}</span>
+        <span>doc: ${escapeHtml(ev.doc_id)}</span>
+        <span>sha: ${escapeHtml((ev.git_sha || "").slice(0, 10))}</span>
       </div>
     </article>
   `;
@@ -66,7 +64,7 @@ function itemHtml(ev) {
 
 function vacioHtml() {
   return `
-    <div class="state-block">
+    <div class="loading-state">
       ${ICONS.empty}
       <p>No se recuperó evidencia para este paso.</p>
     </div>
