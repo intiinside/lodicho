@@ -51,7 +51,10 @@ DEFAULT_CORPUS_PATH = Path(settings.corpus_path)
 DIR_POR_TIPO = {"marco_legal": "marco_legal", "plan_trabajo": "planes_trabajo", "contexto": "contexto"}
 ALIAS_POR_TIPO = {"marco_legal": ALIAS_MARCO_LEGAL, "plan_trabajo": ALIAS_PLANES_TRABAJO, "contexto": ALIAS_CONTEXTO}
 
-ARTICULO_RE = re.compile(r"^Art\.\s*(\d+)", re.MULTILINE)
+ARTICULO_RE = re.compile(
+    r"^#{0,6}[ \t]*\**[ \t]*Art(?:ículo|iculo|\.)?[ \t]*(\d+)",
+    re.MULTILINE | re.IGNORECASE,
+)
 # Solo nivel 1: un eje puede traer subtitulos (## Financiamiento, ## Plazo)
 # que describen esa misma propuesta y tienen que quedar en el mismo chunk,
 # no fragmentados aparte.
