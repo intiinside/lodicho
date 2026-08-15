@@ -1,4 +1,4 @@
-.PHONY: up down logs migrate shell init-qdrant init-letsencrypt reload-nginx
+.PHONY: up down logs migrate shell init-qdrant init-letsencrypt reload-nginx ingest
 
 up:
 	docker compose up -d --build
@@ -17,6 +17,11 @@ shell:
 
 init-qdrant:
 	docker compose exec api python scripts/init_qdrant.py
+
+# make ingest                                    -> todo el corpus
+# make ingest ARGS=marco_legal/cootad-art-1.md    -> un archivo
+ingest:
+	docker compose exec api python scripts/ingest_corpus.py $(ARGS)
 
 # Correr una sola vez, con `make up` ya corrido y CERTBOT_EMAIL en .env.
 init-letsencrypt:

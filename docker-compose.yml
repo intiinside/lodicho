@@ -33,6 +33,13 @@ services:
       context: ./api
     env_file:
       - .env
+    volumes:
+      # lodicho-corpus como hermano de este repo (repo separado a
+      # proposito, ver CLAUDE.md). Solo lectura: la ingesta nunca escribe
+      # en el corpus. Si no existe todavia en esta maquina, Docker crea un
+      # directorio vacio y scripts/ingest_corpus.py simplemente no
+      # encuentra nada para ingestar.
+      - ../lodicho-corpus:/corpus:ro
     depends_on:
       - postgres
       - redis

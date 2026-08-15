@@ -4,7 +4,14 @@
 // seccion "Pipeline de consulta", para no tener que rehacer el frontend
 // cuando el endpoint exista. Si el fetch falla, el error se reporta claro
 // via handlers.onError — nunca se inventan datos para "que se vea bonito".
-const BASE_URL = "/api/v1";
+// Corriendo en localhost (dev, sin build step: asi se prueba el
+// microfono, que exige contexto seguro y localhost cuenta como tal sin
+// necesitar HTTPS) se apunta al backend de produccion via CORS. Servido
+// desde el propio dominio, se queda en ruta relativa — mismo origen, sin
+// preflight de por medio.
+const PRODUCTION_ORIGIN = "https://lodicho.intiinside.com";
+const ES_LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
+const BASE_URL = `${ES_LOCAL ? PRODUCTION_ORIGIN : ""}/api/v1`;
 
 export class ErrorAPI extends Error {
   constructor(mensaje, causa) {
