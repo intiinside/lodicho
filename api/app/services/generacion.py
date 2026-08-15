@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from app.config.settings import settings
 
 GENERATION_MODEL_FLASH = "gemini-2.5-flash"
+GENERATION_MODEL_PRO = "gemini-2.5-pro"
 
 _client: genai.Client | None = None
 
@@ -40,16 +41,20 @@ def generar_structured(
     *,
     system_instruction: str | None = None,
     model: str = GENERATION_MODEL_FLASH,
+    temperature: float | None = None,
 ) -> BaseModel:
     try:
+        config_kwargs = {
+            "response_mime_type": "application/json",
+            "response_schema": response_schema,
+            "system_instruction": system_instruction,
+        }
+        if temperature is not None:
+            config_kwargs["temperature"] = temperature
         response = _get_client().models.generate_content(
             model=model,
             contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=response_schema,
-                system_instruction=system_instruction,
-            ),
+            config=types.GenerateContentConfig(**config_kwargs),
         )
         parsed = response.parsed
         if parsed is None:

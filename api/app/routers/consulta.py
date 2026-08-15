@@ -89,7 +89,7 @@ async def consulta(
     )
 
 
-def _persistir_consulta(session: Session, texto: str, intencion: str) -> None:
+def _persistir_consulta(session: Session, texto: str, intencion: str) -> Declaracion:
     fila_consulta = Consulta(
         tipo_input=TipoInput.texto,
         texto=texto,
@@ -98,16 +98,16 @@ def _persistir_consulta(session: Session, texto: str, intencion: str) -> None:
     )
     session.add(fila_consulta)
     session.flush()
-    session.add(
-        Declaracion(
-            consulta_id=fila_consulta.id,
-            texto=texto,
-            tipo=TipoDeclaracion.dictado_usuario,
-            atribuible=True,
-            analisis_id=None,
-        )
+    declaracion = Declaracion(
+        consulta_id=fila_consulta.id,
+        texto=texto,
+        tipo=TipoDeclaracion.dictado_usuario,
+        atribuible=True,
+        analisis_id=None,
     )
+    session.add(declaracion)
     session.commit()
+    return declaracion
 
 
 def _a_candidatura_info(candidatura: Candidatura, nombre_candidato: str) -> CandidaturaInfo:
@@ -237,7 +237,7 @@ def _generar_stream(
             return
 
         try:
-            _persistir_consulta(session, texto, categoria.value)
+            declaracion = _persistir_consulta(session, texto, categoria.value)
         except Exception:
             session.rollback()
             logger.exception("fallo al persistir Consulta/Declaracion")
@@ -252,7 +252,7 @@ def _generar_stream(
                     if candidatura
                     else None
                 ),
-                declaracion=DeclaracionInfo(texto=texto),
+                declaracion=DeclaracionInfo(id=declaracion.id, texto=texto),
                 evidencias=evidencias,
             ),
         )

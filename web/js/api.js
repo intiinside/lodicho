@@ -36,6 +36,26 @@ export async function enviarConsulta(payload, handlers) {
     return;
   }
 
+  await leerStreamSSE(response, handlers);
+}
+
+export async function pedirVeredicto(declaracionId, candidaturaId, handlers) {
+  let response;
+  try {
+    response = await fetch(`${BASE_URL}/veredicto`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ declaracion_id: declaracionId, candidatura_id: candidaturaId }),
+    });
+  } catch (causa) {
+    handlers.onError(new ErrorAPI("No se pudo conectar con el servidor.", causa));
+    return;
+  }
+
+  await leerStreamSSE(response, handlers);
+}
+
+async function leerStreamSSE(response, handlers) {
   if (!response.ok || !response.body) {
     handlers.onError(new ErrorAPI(`El servidor respondió ${response.status}.`));
     return;

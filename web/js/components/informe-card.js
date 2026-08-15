@@ -2,6 +2,8 @@ import { veredictoBadgeHtml } from "./veredicto-badge.js";
 import { abrirEvidencias } from "./evidencia-sheet.js";
 import { escapeHtml } from "../util.js";
 import { ICONS, mostrarToast } from "../icons.js";
+import { pedirVeredicto } from "../api.js";
+import { guardarEnHistorial } from "../state.js";
 
 export function crearInformeCard(informe) {
   const el = document.createElement("article");
@@ -35,6 +37,11 @@ export function crearInformeCard(informe) {
       <button type="button" class="btn-secondary" data-accion="copiar-despacho">
         ${ICONS.copy} <span>Copiar Despacho</span>
       </button>
+      ${mostrarBotonVeredicto(informe) ? `
+        <button type="button" class="btn-secondary" data-accion="pedir-veredicto">
+          ${ICONS.sparkles} <span>Pedir Veredicto</span>
+        </button>
+      ` : ""}
     </div>
   `;
 
@@ -46,7 +53,45 @@ export function crearInformeCard(informe) {
     copiarDespacho(informe);
   });
 
+  el.querySelector('[data-accion="pedir-veredicto"]')?.addEventListener("click", (ev) => {
+    solicitarVeredicto(el, informe, ev.currentTarget);
+  });
+
   return el;
+}
+
+function mostrarBotonVeredicto(informe) {
+  return (
+    informe.estado !== "publicado" &&
+    !informe.veredicto &&
+    Boolean(informe.candidatura) &&
+    Boolean(informe.declaracionId)
+  );
+}
+
+async function solicitarVeredicto(el, informe, boton) {
+  boton.disabled = true;
+  boton.querySelector("span").textContent = "Generando...";
+
+  await pedirVeredicto(informe.declaracionId, informe.candidatura.id, {
+    onEvento(nombre, data) {
+      if (nombre === "veredicto") {
+        const actualizado = guardarEnHistorial({ ...informe, ...data });
+        el.replaceWith(crearInformeCard(actualizado));
+        return;
+      }
+      if (nombre === "rechazo" || nombre === "error") {
+        mostrarToast(data.motivo || data.detalle || "No se pudo generar el veredicto");
+        boton.disabled = false;
+        boton.querySelector("span").textContent = "Pedir Veredicto";
+      }
+    },
+    onError(err) {
+      mostrarToast(err.message);
+      boton.disabled = false;
+      boton.querySelector("span").textContent = "Pedir Veredicto";
+    },
+  });
 }
 
 function bannerEditorialHtml(informe) {

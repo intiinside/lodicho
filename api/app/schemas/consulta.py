@@ -75,6 +75,7 @@ class CandidaturaInfo(BaseModel):
 
 
 class DeclaracionInfo(BaseModel):
+    id: int
     texto: str
 
 
@@ -84,6 +85,7 @@ class EvidenciaItem(BaseModel):
     score: float
     doc_id: str
     git_sha: str
+    point_id: str
 
 
 class EvidenciaEventData(BaseModel):
