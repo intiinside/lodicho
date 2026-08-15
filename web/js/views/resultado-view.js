@@ -11,7 +11,7 @@ export async function render(container, params) {
         ${ICONS.empty}
         <h2 style="font-size:16px;">Informe no encontrado</h2>
         <p>Esta consulta no existe en el almacenamiento local.</p>
-        <a href="#/" class="btn btn--primary" style="margin-top:12px; max-width:200px;">Volver al inicio</a>
+        <a href="#/" class="btn-primary" style="margin-top:12px; max-width:200px; text-decoration:none;">Volver al inicio</a>
       </div>
     `;
     return;
