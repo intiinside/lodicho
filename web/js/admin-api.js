@@ -76,11 +76,11 @@ export async function login(password) {
   return cuerpo;
 }
 
-export function convertir(tipo, archivoPdf) {
+export function importarMarkdown(tipo, archivoMd) {
   const formData = new FormData();
   formData.set("tipo", tipo);
-  formData.set("pdf", archivoPdf);
-  return llamar("/documentos/convertir", { method: "POST", body: formData });
+  formData.set("markdown_file", archivoMd);
+  return llamar("/documentos/importar-markdown", { method: "POST", body: formData });
 }
 
 export function obtenerBorrador(id) {

@@ -255,48 +255,85 @@ function renderSubir(container, api) {
           <option value="contexto">Contexto Territorial</option>
         </select>
       </div>
-      
+
+      <div style="margin-bottom: 16px; display:flex; gap:8px;">
+        <button type="button" class="btn-secondary" id="admin-modo-pdf" style="flex:1;">PDF (Docling)</button>
+        <button type="button" class="btn-secondary" id="admin-modo-md" style="flex:1;">Markdown (.md)</button>
+      </div>
+
       <div class="dropzone-apple" id="admin-dropzone" style="margin-bottom: 20px;">
         <div class="dropzone-apple__icon">${ICONS.upload}</div>
-        <div class="dropzone-apple__title">Arrastra o haz clic para subir el PDF oficial</div>
+        <div class="dropzone-apple__title" id="admin-dropzone-title">Arrastra o haz clic para subir el PDF oficial</div>
         <div class="dropzone-apple__subtitle" id="admin-dropzone-subtitle">Se procesará server-side estructuradamente con Docling</div>
-        <input type="file" id="admin-pdf" accept="application/pdf" hidden />
+        <input type="file" id="admin-archivo" accept="application/pdf" hidden />
       </div>
-      
+
       <button type="button" class="btn-primary" id="admin-convertir-btn" style="width:100%;">Convertir a Markdown</button>
       <div id="admin-subir-estado" style="margin-top:16px;"></div>
     </div>
   `;
 
   const selectTipo = container.querySelector("#admin-tipo");
-  const inputPdf = container.querySelector("#admin-pdf");
+  const inputArchivo = container.querySelector("#admin-archivo");
   const dropzone = container.querySelector("#admin-dropzone");
+  const dropzoneTitle = container.querySelector("#admin-dropzone-title");
   const dropzoneSubtitle = container.querySelector("#admin-dropzone-subtitle");
   const boton = container.querySelector("#admin-convertir-btn");
   const estadoEl = container.querySelector("#admin-subir-estado");
+  const btnPdf = container.querySelector("#admin-modo-pdf");
+  const btnMd = container.querySelector("#admin-modo-md");
 
-  dropzone.addEventListener("click", () => inputPdf.click());
-  inputPdf.addEventListener("change", () => {
-    if (inputPdf.files[0]) dropzoneSubtitle.textContent = inputPdf.files[0].name;
+  let modo = "pdf";
+
+  function actualizarModo(nuevoModo) {
+    modo = nuevoModo;
+    inputArchivo.value = "";
+    const esPdf = modo === "pdf";
+    inputArchivo.accept = esPdf ? "application/pdf" : ".md,text/markdown";
+    dropzoneTitle.textContent = esPdf
+      ? "Arrastra o haz clic para subir el PDF oficial"
+      : "Arrastra o haz clic para subir el archivo .md";
+    dropzoneSubtitle.textContent = esPdf
+      ? "Se procesará server-side estructuradamente con Docling"
+      : "Se usa tal cual, sin pasar por Docling";
+    boton.textContent = esPdf ? "Convertir a Markdown" : "Continuar con este Markdown";
+    btnPdf.classList.toggle("btn-primary", esPdf);
+    btnPdf.classList.toggle("btn-secondary", !esPdf);
+    btnMd.classList.toggle("btn-primary", !esPdf);
+    btnMd.classList.toggle("btn-secondary", esPdf);
+  }
+
+  btnPdf.addEventListener("click", () => actualizarModo("pdf"));
+  btnMd.addEventListener("click", () => actualizarModo("md"));
+
+  dropzone.addEventListener("click", () => inputArchivo.click());
+  inputArchivo.addEventListener("change", () => {
+    if (inputArchivo.files[0]) dropzoneSubtitle.textContent = inputArchivo.files[0].name;
   });
 
   boton.addEventListener("click", async () => {
-    const archivo = inputPdf.files[0];
+    const archivo = inputArchivo.files[0];
     if (!archivo) {
-      estadoEl.innerHTML = `<div class="banner banner--warning">Selecciona un archivo PDF primero.</div>`;
+      estadoEl.innerHTML = `<div class="banner banner--warning">Selecciona un archivo primero.</div>`;
       return;
     }
     boton.disabled = true;
-    estadoEl.innerHTML = `<div class="loading-state"><div class="apple-spinner"></div><p>Docling está extrayendo texto y tablas del documento...</p></div>`;
+    estadoEl.innerHTML = modo === "pdf"
+      ? `<div class="loading-state"><div class="apple-spinner"></div><p>Docling está extrayendo texto y tablas del documento...</p></div>`
+      : `<div class="loading-state"><div class="apple-spinner"></div><p>Leyendo el markdown...</p></div>`;
 
     try {
-      const resultado = await api.convertir(selectTipo.value, archivo);
+      const resultado = modo === "pdf"
+        ? await api.convertir(selectTipo.value, archivo)
+        : await api.importarMarkdown(selectTipo.value, archivo);
       await renderRevisar(container, api, resultado);
     } catch (err) {
       estadoEl.innerHTML = `<div class="banner banner--danger">${escapeHtml(err.message)}</div>`;
       boton.disabled = false;
     }
   });
+
+  actualizarModo("pdf");
 }
 
 async function renderRevisar(container, api, datosIniciales) {

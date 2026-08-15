@@ -13,6 +13,7 @@ adelante, pasa a una tabla en Postgres.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import shutil
 import tempfile
 import uuid
@@ -72,7 +73,8 @@ class Borrador:
     meta: dict[str, Any]
     pdf_temp_path: Path | None = None
     pdf_sha256: str | None = None
-    texto_pdf: str = ""
+    texto_pdf: str | None = ""
+    origen: str = "docling"
 
 
 _borradores: dict[str, Borrador] = {}
@@ -105,7 +107,7 @@ def _meta_con_campos_automaticos(b: Borrador) -> dict[str, Any]:
     return {
         **b.meta,
         "pdf_sha256": b.pdf_sha256,
-        "convertido_con": "docling",
+        "convertido_con": b.origen,
         "revisado_en": date.today().isoformat(),
     }
 
@@ -152,6 +154,35 @@ async def convertir(tipo: str = Form(...), pdf: UploadFile = File(...)) -> Conve
 
     return ConvertirResponse(borrador_id=borrador_id, markdown=markdown, pdf_sha256=pdf_sha256, tipo=tipo)
 
+@router.post(
+    "/documentos/importar-markdown", response_model=ConvertirResponse, dependencies=[Depends(requiere_admin)]
+)
+async def importar_markdown(tipo: str = Form(...), markdown_file: UploadFile = File(...)) -> ConvertirResponse:
+    if tipo not in DIR_POR_TIPO:
+        raise HTTPException(status_code=422, detail=f"tipo debe ser uno de {list(DIR_POR_TIPO)}")
+
+    contenido = await markdown_file.read()
+    try:
+        markdown = contenido.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=422, detail="El archivo no es UTF-8 válido.") from exc
+
+    borrador_id = str(uuid.uuid4())
+    # No hay PDF de origen: usamos el sha256 del propio markdown como
+    # checksum de integridad, para no dejar vacio 'pdf_sha256' (campo
+    # obligatorio en la validacion del corpus para cualquier tipo).
+    checksum = hashlib.sha256(contenido).hexdigest()
+
+    _borradores[borrador_id] = Borrador(
+        markdown=markdown,
+        meta={"tipo": tipo, "vigente": True},
+        pdf_temp_path=None,
+        pdf_sha256=checksum,
+        texto_pdf=None,  # sin PDF: se salta la validacion de ratio markdown/pdf
+        origen="manual",
+    )
+
+    return ConvertirResponse(borrador_id=borrador_id, markdown=markdown, pdf_sha256=checksum, tipo=tipo)
 
 class BorradorResponse(BaseModel):
     markdown: str
