@@ -26,6 +26,7 @@ export async function enviarConsulta(payload, handlers) {
   if (payload.texto) formData.set("texto", payload.texto);
   if (payload.urlFuente) formData.set("url_fuente", payload.urlFuente);
   if (payload.audioBlob) formData.set("audio", payload.audioBlob, "consulta.webm");
+  if (payload.candidaturaId) formData.set("candidatura_id", payload.candidaturaId);
 
   let response;
   try {

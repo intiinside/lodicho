@@ -25,7 +25,20 @@ COPY alembic.ini .
 COPY migrations ./migrations
 COPY scripts ./scripts
 
-RUN pip install --no-cache-dir .
+# Docling arrastra torch como dependencia transitiva (modelos de layout).
+# El wheel default de PyPI para torch trae CUDA + cuDNN (~1GB extra) aunque
+# este contenedor nunca corre con GPU — eso solo hace el build mas lento y
+# mas propenso a timeout de red sin ningun beneficio. Instalar primero la
+# variante CPU desde el indice oficial de PyTorch para que el resolver de
+# pip la use en vez de bajar la de CUDA al instalar el resto de deps.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+RUN pip install --no-cache-dir . --extra-index-url https://download.pytorch.org/whl/cpu
+
+# Pre-descarga los modelos de layout/OCR de Docling en el build (ver
+# scripts/warm_docling_models.py) para que la primera conversion real no
+# la dispare en caliente dentro de un request.
+RUN python scripts/warm_docling_models.py
 
 # Pre-descarga los modelos de layout/tableformer/OCR de Docling en el
 # build, para que no se bajen (y bloqueen el primer request real) la

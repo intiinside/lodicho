@@ -1,4 +1,4 @@
-const CACHE_VERSION = "lodicho-shell-v3";
+const CACHE_VERSION = "lodicho-shell-v4";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -26,6 +26,9 @@ const APP_SHELL = [
   "/icons/icon.svg",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/icons/favicon-32.png",
+  "/icons/favicon-16.png",
+  "/icons/apple-touch-icon.png",
 ];
 
 self.addEventListener("install", (event) => {

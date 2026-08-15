@@ -39,3 +39,6 @@ htmlcov/
 .idea/
 .DS_Store
 *.swp
+
+# --- Claude Code (estado de sesion local, nunca al repo) ---
+.claude/
