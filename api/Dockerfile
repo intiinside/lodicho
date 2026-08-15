@@ -6,6 +6,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \
     openssh-client \
+    # Docling usa OpenCV para el analisis de layout de cada pagina, que
+    # en Debian slim necesita estas libs graficas/X11 aunque no haya
+    # ningun display real (headless) — sin ellas falla con
+    # "libxcb.so.1: cannot open shared object file" o equivalente.
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libxcb1 \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY pyproject.toml .
