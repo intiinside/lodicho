@@ -18,8 +18,8 @@ from pydantic import BaseModel
 
 from app.config.settings import settings
 
-GENERATION_MODEL_FLASH = "gemini-2.5-flash"
-GENERATION_MODEL_PRO = "gemini-2.5-pro"
+GENERATION_MODEL_FLASH = "gemini-flash-latest"
+GENERATION_MODEL_PRO = "gemini-pro-latest"
 
 _client: genai.Client | None = None
 
