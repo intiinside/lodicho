@@ -138,6 +138,8 @@ html, body {
 }
 
 svg {
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   max-width: 100%;
   max-height: 100%;
