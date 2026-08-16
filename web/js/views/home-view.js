@@ -77,7 +77,7 @@ export async function render(container) {
       const payloadConCandidatura = candidaturaPreseleccionada
         ? { ...payload, candidaturaId: candidaturaPreseleccionada.id }
         : payload;
-      ejecutarConsulta(container, payloadConCandidatura, estadoEl);
+      return ejecutarConsulta(container, payloadConCandidatura, estadoEl);
     },
   });
   container.querySelector("#composer-slot").appendChild(composer);

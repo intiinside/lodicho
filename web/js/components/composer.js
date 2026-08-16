@@ -60,9 +60,13 @@ export function crearComposer({ onEnviar }) {
   let mediaRecorder = null;
   let chunks = [];
   let reconocimiento = null;
+  let enviando = false;
+
+  const ETIQUETA_ENVIAR = `${ICONS.search} <span>Contrastar Declaración</span>`;
+  const ETIQUETA_ENVIANDO = `<div class="btn-spinner"></div> <span>Contrastando...</span>`;
 
   function actualizarEnviar() {
-    botonEnviar.disabled = grabando || !(textarea.value.trim() || audioBlob);
+    botonEnviar.disabled = enviando || grabando || !(textarea.value.trim() || audioBlob);
   }
 
   function mostrarChip(etiqueta) {
@@ -180,7 +184,7 @@ export function crearComposer({ onEnviar }) {
     }
   }
 
-  botonEnviar.addEventListener("click", () => {
+  botonEnviar.addEventListener("click", async () => {
     const texto = textarea.value.trim();
     let payload;
     if (audioBlob) {
@@ -191,11 +195,21 @@ export function crearComposer({ onEnviar }) {
       payload = { tipoInput: "texto", texto };
     }
 
+    enviando = true;
+    botonEnviar.innerHTML = ETIQUETA_ENVIANDO;
+    actualizarEnviar();
+
     textarea.value = "";
     quitarAudio();
     status.textContent = "";
-    actualizarEnviar();
-    onEnviar(payload);
+
+    try {
+      await onEnviar(payload);
+    } finally {
+      enviando = false;
+      botonEnviar.innerHTML = ETIQUETA_ENVIAR;
+      actualizarEnviar();
+    }
   });
 
   actualizarEnviar();
